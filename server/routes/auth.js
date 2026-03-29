@@ -21,9 +21,11 @@ router.post('/register', async (req, res) => {
     const existing = await Auth.findOne({ user_email: email.toLowerCase() });
     if (existing) return res.status(400).json({ message: 'Email already registered' });
 
+    const cleanedHospital = hospital === "" ? undefined : hospital;
     const user = await User.create({
       name, email, role, age, gender, blood_group, phone, address,
-      specialization, license_number, registration_number, hospital,
+      specialization, license_number, registration_number,
+      hospital: cleanedHospital, // Use cleaned value
     });
 
     const auth = await Auth.create({
