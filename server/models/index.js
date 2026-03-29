@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   allergies:       [{ type: String }],
   // Doctor-specific fields
   specialization:  { type: String },
-  hospital:        { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' },
+  hospital:        { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital',required: false },
   license_number:  { type: String },
   registration_number: { type: String },
   profile_picture: { type: String },

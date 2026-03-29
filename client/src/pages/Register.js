@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Register() {
   const { register, error, setError, api } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep]     = useState(1);
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hospitals, setHospitals] = useState([]);
   const [form, setForm] = useState({
@@ -16,8 +16,8 @@ export default function Register() {
   });
 
   useEffect(() => {
-    api.get('/hospitals').then(r => setHospitals(r.data)).catch(() => {});
-  // eslint-disable-next-line
+    api.get('/hospitals').then(r => setHospitals(r.data)).catch(() => { });
+    // eslint-disable-next-line
   }, []);
 
   const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -27,7 +27,11 @@ export default function Register() {
     if (form.password !== form.confirmPassword) return setError('Passwords do not match');
     setLoading(true);
     try {
-      const payload = { ...form, allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()) : [] };
+      const payload = {
+        ...form,
+        hospital: form.hospital || null, // Convert empty string to null
+        allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()) : []
+      };
       delete payload.confirmPassword;
       await register(payload);
       navigate('/');
@@ -37,6 +41,7 @@ export default function Register() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: 40 }}>
@@ -56,7 +61,7 @@ export default function Register() {
               flex: 1, height: 3, borderRadius: 99,
               background: s <= step ? 'var(--accent)' : 'var(--border)',
               transition: 'background .3s',
-            }}/>
+            }} />
           ))}
         </div>
 
@@ -134,7 +139,7 @@ export default function Register() {
                   <label className="form-label">Blood Group</label>
                   <select className="form-select" name="blood_group" value={form.blood_group} onChange={handle}>
                     <option value="">Select</option>
-                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => <option key={b}>{b}</option>)}
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(b => <option key={b}>{b}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
