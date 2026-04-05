@@ -29,7 +29,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/vitalbyte')
   .then(() => console.log('✅ MongoDB connected'))
@@ -45,6 +44,7 @@ app.use('/api/medical-records', require('./routes/medicalRecords'));
 app.use('/api/lab-reports',  require('./routes/labReports'));
 app.use('/api/hospitals',    require('./routes/hospitals'));
 app.use('/api/dashboard',    require('./routes/dashboard'));
+app.use('/api/complaints', require('./routes/complaints'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));

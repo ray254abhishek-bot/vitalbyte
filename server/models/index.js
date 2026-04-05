@@ -130,6 +130,32 @@ const notificationSchema = new mongoose.Schema({
   read:     { type: Boolean, default: false },
   link:     { type: String },
 }, { timestamps: true });
+const complaintSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user_name: { type: String, required: true },
+  user_role: { type: String, enum: ['patient', 'doctor', 'admin', 'lab_technician'], required: true },
+  subject: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { 
+    type: String, 
+    enum: ['technical', 'medical', 'billing', 'staff', 'suggestion', 'other'], 
+    default: 'other' 
+  },
+  priority: { 
+    type: String, 
+    enum: ['low', 'medium', 'high', 'urgent'], 
+    default: 'medium' 
+  },
+  status: { 
+    type: String, 
+    enum: ['pending', 'in_review', 'resolved', 'rejected'], 
+    default: 'pending' 
+  },
+  admin_response: { type: String },
+  resolved_at: { type: Date },
+  attachments: [{ type: String }], // URLs to uploaded files
+  is_anonymous: { type: Boolean, default: false },
+}, { timestamps: true });
 
 module.exports = {
   User:          mongoose.model('User',          userSchema),
@@ -140,4 +166,5 @@ module.exports = {
   LabReport:     mongoose.model('LabReport',     labReportSchema),
   Message:       mongoose.model('Message',       messageSchema),
   Notification:  mongoose.model('Notification',  notificationSchema),
+  Complaint: mongoose.model('Complaint', complaintSchema),
 };

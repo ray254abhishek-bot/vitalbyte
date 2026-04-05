@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { format } from 'date-fns';
+import ComplaintModal from './ComplaintModal';
 
 const NAV = {
   patient: [
@@ -13,8 +14,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Connect', items: [
-      { to: '/doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
-      { to: '/chat',    icon: '💬', label: 'Messages' },
+      { to: '/doctors',    icon: '👨‍⚕️', label: 'Find Doctors' },
+      { to: '/chat',       icon: '💬', label: 'Messages' },
+      { to: '/complaints', icon: '📝', label: 'Complaints' },
     ]},
   ],
   doctor: [
@@ -25,8 +27,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Manage', items: [
-      { to: '/patients', icon: '🏥', label: 'My Patients' },
-      { to: '/chat',     icon: '💬', label: 'Messages' },
+      { to: '/patients',   icon: '🏥', label: 'My Patients' },
+      { to: '/chat',       icon: '💬', label: 'Messages' },
+      { to: '/complaints', icon: '📝', label: 'Complaints' },
     ]},
   ],
   admin: [
@@ -35,10 +38,11 @@ const NAV = {
       { to: '/appointments', icon: '📅', label: 'Appointments' },
     ]},
     { section: 'Management', items: [
-      { to: '/admin/users', icon: '👥', label: 'All Users' },
-      { to: '/doctors',     icon: '👨‍⚕️', label: 'Doctors' },
-      { to: '/patients',    icon: '🏥', label: 'Patients' },
-      { to: '/hospitals',   icon: '🏨', label: 'Hospitals' },
+      { to: '/admin/users',  icon: '👥', label: 'All Users' },
+      { to: '/doctors',      icon: '👨‍⚕️', label: 'Doctors' },
+      { to: '/patients',     icon: '🏥', label: 'Patients' },
+      { to: '/hospitals',    icon: '🏨', label: 'Hospitals' },
+      { to: '/complaints',   icon: '📝', label: 'Complaints' },
     ]},
     { section: 'Records', items: [
       { to: '/medical-records', icon: '📋', label: 'Medical Records' },
@@ -48,13 +52,13 @@ const NAV = {
 };
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, api } = useAuth();
   const { notifications, emergencyAlert, clearEmergency } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifs, setShowNotifs]     = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
   const [apiNotifs,  setApiNotifs]      = useState([]);
-  const { api } = useAuth();
   const notifRef = useRef();
 
   const unread = [...apiNotifs, ...notifications].filter(n => !n.read).length;
@@ -78,11 +82,17 @@ export default function Layout() {
       '/medical-records': 'Medical Records', '/lab-reports': 'Lab Reports',
       '/doctors': 'Doctors', '/patients': 'Patients', '/hospitals': 'Hospitals',
       '/chat': 'Messages', '/profile': 'My Profile', '/admin/users': 'User Management',
+      '/complaints': 'Complaints & Feedback',
     };
     return map[location.pathname] || 'VitalByte';
   };
 
   const initials = user?.name?.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+  const handleComplaintSubmit = () => {
+    // Optional: Show a success toast or refresh something
+    console.log('Complaint submitted successfully');
+  };
 
   return (
     <div className="app-layout">
@@ -142,6 +152,11 @@ export default function Layout() {
               <EmergencyBtn user={user} />
             )}
 
+            {/* Complaint Button */}
+            <div className="icon-btn" onClick={() => setShowComplaintModal(true)} title="File a complaint">
+              📝
+            </div>
+
             {/* Notifications */}
             <div style={{ position: 'relative' }} ref={notifRef}>
               <div className="icon-btn" onClick={() => setShowNotifs(s => !s)}>
@@ -186,6 +201,15 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* COMPLAINT MODAL */}
+      {showComplaintModal && (
+        <ComplaintModal
+          onClose={() => setShowComplaintModal(false)}
+          onSubmit={handleComplaintSubmit}
+          api={api}
+        />
+      )}
     </div>
   );
 }

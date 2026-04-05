@@ -16,6 +16,7 @@ import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import AdminUsers from './pages/AdminUsers';
 import './index.css';
+import Complaints from './pages/Complaints';
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ const AppRoutes = () => {
             <Route path="admin/users"     element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="complaints" element={<Complaints />} />
         </Routes>
       </BrowserRouter>
     </SocketProvider>
