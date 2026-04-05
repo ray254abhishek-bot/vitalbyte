@@ -1,0 +1,3934 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+
+const NAV = {
+  patient: [
+    { section: 'Main', items: [
+      { to: '/',                icon: '⚡', label: 'Dashboard' },
+      { to: '/appointments',    icon: '📅', label: 'Appointments' },
+      { to: '/medical-records', icon: '📋', label: 'Medical Records' },
+      { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
+    ]},
+    { section: 'Connect', items: [
+      { to: '/doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
+      { to: '/chat',    icon: '💬', label: 'Messages' },
+    ]},
+  ],
+  doctor: [
+    { section: 'Main', items: [
+      { to: '/',                icon: '⚡', label: 'Dashboard' },
+      { to: '/appointments',    icon: '📅', label: 'Appointments' },
+      { to: '/medical-records', icon: '📋', label: 'Medical Records' },
+      { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
+    ]},
+    { section: 'Manage', items: [
+      { to: '/patients', icon: '🏥', label: 'My Patients' },
+      { to: '/chat',     icon: '💬', label: 'Messages' },
+    ]},
+  ],
+  admin: [
+    { section: 'Main', items: [
+      { to: '/',             icon: '⚡', label: 'Dashboard' },
+      { to: '/appointments', icon: '📅', label: 'Appointments' },
+    ]},
+    { section: 'Management', items: [
+      { to: '/admin/users', icon: '👥', label: 'All Users' },
+      { to: '/doctors',     icon: '👨‍⚕️', label: 'Doctors' },
+      { to: '/patients',    icon: '🏥', label: 'Patients' },
+      { to: '/hospitals',   icon: '🏨', label: 'Hospitals' },
+    ]},
+    { section: 'Records', items: [
+      { to: '/medical-records', icon: '📋', label: 'Medical Records' },
+      { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
+    ]},
+  ],
+};
+
+export default function Layout() {
+  const { user, logout } = useAuth();
+  const { notifications, emergencyAlert, clearEmergency } = useSocket();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [showNotifs, setShowNotifs]     = useState(false);
+  const [apiNotifs,  setApiNotifs]      = useState([]);
+  const { api } = useAuth();
+  const notifRef = useRef();
+
+  const unread = [...apiNotifs, ...notifications].filter(n => !n.read).length;
+
+  useEffect(() => {
+    api.get('/users/notifications').then(r => setApiNotifs(r.data)).catch(() => {});
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifs(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const navGroups = NAV[user?.role] || NAV.patient;
+
+  const pageTitle = () => {
+    const map = {
+      '/': 'Dashboard', '/appointments': 'Appointments',
+      '/medical-records': 'Medical Records', '/lab-reports': 'Lab Reports',
+      '/doctors': 'Doctors', '/patients': 'Patients', '/hospitals': 'Hospitals',
+      '/chat': 'Messages', '/profile': 'My Profile', '/admin/users': 'User Management',
+    };
+    return map[location.pathname] || 'VitalByte';
+  };
+
+  const initials = user?.name?.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+  return (
+    <div className="app-layout">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-row">
+            <div className="logo-icon">💊</div>
+            <div>
+              <div className="logo-name">VitalByte</div>
+              <div className="logo-tagline">Health Records</div>
+            </div>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navGroups.map(group => (
+            <div className="nav-section" key={group.section}>
+              <div className="nav-label">{group.section}</div>
+              {group.items.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                  {item.label === 'Messages' && unread > 0 && (
+                    <span className="nav-badge">{unread}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-card" onClick={() => navigate('/profile')}>
+            <div className="avatar">{initials}</div>
+            <div className="user-info">
+              <div className="u-name">{user?.name?.split(' ')[0]}</div>
+              <div className="u-role">{user?.role}</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <div className="main-area">
+        {/* TOPBAR */}
+        <header className="topbar">
+          <div className="topbar-title">{pageTitle()}</div>
+          <div className="topbar-actions">
+            {/* Emergency button (patients only) */}
+            {user?.role === 'patient' && (
+              <EmergencyBtn user={user} />
+            )}
+
+            {/* Notifications */}
+            <div style={{ position: 'relative' }} ref={notifRef}>
+              <div className="icon-btn" onClick={() => setShowNotifs(s => !s)}>
+                🔔
+                {unread > 0 && <span className="badge-dot" />}
+              </div>
+              {showNotifs && (
+                <NotifPanel
+                  notifs={[...notifications, ...apiNotifs].slice(0, 15)}
+                  onClose={() => setShowNotifs(false)}
+                  api={api}
+                />
+              )}
+            </div>
+
+            <div className="icon-btn" onClick={() => navigate('/profile')}>👤</div>
+            <button className="btn btn-outline btn-sm" onClick={logout}>Logout</button>
+          </div>
+        </header>
+
+        {/* EMERGENCY BANNER */}
+        {emergencyAlert && (
+          <div style={{ padding: '0 32px', marginTop: 16 }}>
+            <div className="emergency-banner">
+              <span style={{ fontSize: 24 }}>🚨</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: 'var(--danger)' }}>
+                  EMERGENCY ALERT
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+                  Patient {emergencyAlert.patientName} needs immediate assistance
+                  {emergencyAlert.location && ` • ${emergencyAlert.location}`}
+                </div>
+              </div>
+              <button className="btn btn-danger btn-sm" onClick={clearEmergency}>Dismiss</button>
+            </div>
+          </div>
+        )}
+
+        {/* PAGE CONTENT */}
+        <main className="page-body">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function EmergencyBtn({ user }) {
+  const { emitEmergency } = useSocket();
+  const [sent, setSent] = useState(false);
+
+  const handleEmergency = () => {
+    if (window.confirm('Send emergency alert to all doctors and staff?')) {
+      emitEmergency({
+        patientId: user._id,
+        patientName: user.name,
+        patientPhone: user.phone,
+        location: 'Location not available',
+        bloodGroup: user.blood_group,
+        allergies: user.allergies,
+      });
+      setSent(true);
+      setTimeout(() => setSent(false), 5000);
+    }
+  };
+
+  return (
+    <button
+      className={`btn btn-sm ${sent ? 'btn-ghost' : 'btn-danger'}`}
+      onClick={handleEmergency}
+      disabled={sent}
+    >
+      {sent ? '✅ Alert Sent' : '🚨 Emergency'}
+    </button>
+  );
+}
+
+function NotifPanel({ notifs, onClose, api }) {
+  const markRead = async (id) => {
+    await api.put(`/users/notifications/${id}/read`).catch(() => {});
+  };
+  return (
+    <div className="notif-panel">
+      <div className="notif-header">
+        <span>Notifications</span>
+        <span className="text-muted text-sm" style={{ cursor: 'pointer' }} onClick={onClose}>✕</span>
+      </div>
+      {notifs.length === 0 ? (
+        <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+          No notifications
+        </div>
+      ) : notifs.map((n, i) => (
+        <div key={n._id || n.id || i} className={`notif-item ${!n.read ? 'unread' : ''}`} onClick={() => n._id && markRead(n._id)}>
+          <div className="notif-title">
+            {n.type === 'emergency' ? '🚨' : n.type === 'appointment' ? '📅' : n.type === 'lab_report' ? '🧪' : '🔔'} {n.title}
+          </div>
+          <div className="notif-msg">{n.message}</div>
+          <div className="notif-time">{n.createdAt ? format(new Date(n.createdAt), 'MMM d, h:mm a') : 'Just now'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+
+const AuthContext = createContext(null);
+
+const api = axios.create({ baseURL: process.env.REACT_APP_API_URL + '/api' });
+
+api.interceptors.request.use(cfg => {
+  const token = localStorage.getItem('vb_token');
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
+});
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+
+  useEffect(() => {
+    const token = localStorage.getItem('vb_token');
+    if (token) {
+      api.get('/auth/me')
+        .then(r => setUser(r.data.user))
+        .catch(() => localStorage.removeItem('vb_token'))
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const login = async (email, password) => {
+    setError('');
+    const { data } = await api.post('/auth/login', { email, password });
+    localStorage.setItem('vb_token', data.token);
+    setUser(data.user);
+    return data.user;
+  };
+
+  const register = async (form) => {
+    setError('');
+    const { data } = await api.post('/auth/register', form);
+    localStorage.setItem('vb_token', data.token);
+    setUser(data.user);
+    return data.user;
+  };
+
+  const logout = () => {
+    localStorage.removeItem('vb_token');
+    setUser(null);
+  };
+
+  const updateUser = (u) => setUser(u);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, error, setError, login, register, logout, updateUser, api }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
+export { api };
+
+
+
+
+
+
+
+// ─── SocketContext.js ─────────────────────────────────────────────────────────
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
+
+const SocketContext = createContext(null);
+
+export const SocketProvider = ({ children, userId }) => {
+  const socketRef = useRef(null);
+  const [onlineUsers, setOnlineUsers]   = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [emergencyAlert, setEmergencyAlert] = useState(null);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
+      transports: ['websocket'],
+    });
+
+    const socket = socketRef.current;
+
+    socket.on('connect', () => {
+      socket.emit('register', userId);
+    });
+
+    socket.on('online_users',    (users) => setOnlineUsers(users));
+    socket.on('emergency_broadcast', (data) => {
+      setEmergencyAlert(data);
+      setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
+    });
+    socket.on('new_appointment',      (data) => addNotif('appointment',  data));
+    socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
+    socket.on('new_lab_report',       (data) => addNotif('lab_report',   data));
+    socket.on('appointment_update',   () => {}); // handled per-page
+    socket.on('lab_report_update',    () => {});
+    socket.on('record_added',         () => {});
+
+    return () => socket.disconnect();
+  // eslint-disable-next-line
+  }, [userId]);
+
+  const addNotif = (type, data) => {
+    setNotifications(n => [{ ...data, id: Date.now(), type }, ...n.slice(0, 19)]);
+  };
+
+  const clearEmergency = () => setEmergencyAlert(null);
+
+  const value = {
+    socket: socketRef.current,
+    onlineUsers,
+    notifications,
+    emergencyAlert,
+    clearEmergency,
+    emitEmergency: (data) => socketRef.current?.emit('emergency_alert', data),
+    joinRoom:    (roomId) => socketRef.current?.emit('join_room', roomId),
+    sendMessage: (data)   => socketRef.current?.emit('send_message', data),
+    emitTyping:  (data)   => socketRef.current?.emit('typing', data),
+    stopTyping:  (data)   => socketRef.current?.emit('stop_typing', data),
+    onMessage:   (cb) => { socketRef.current?.on('receive_message', cb); return () => socketRef.current?.off('receive_message', cb); },
+    onTyping:    (cb) => { socketRef.current?.on('user_typing', cb);     return () => socketRef.current?.off('user_typing', cb); },
+    onStopTyping:(cb) => { socketRef.current?.on('user_stop_typing', cb); return () => socketRef.current?.off('user_stop_typing', cb); },
+    isOnline: (id) => onlineUsers.includes(id),
+  };
+
+  return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
+};
+
+export const useSocket = () => useContext(SocketContext);
+
+
+
+
+export { AdminUsers as default } from './Profile';
+
+
+
+
+
+
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+
+const STATUS_BADGE = { pending:'badge-warning', confirmed:'badge-info', completed:'badge-success', cancelled:'badge-danger', rescheduled:'badge-purple' };
+const TYPE_BADGE   = { 'in-person':'badge-info', online:'badge-success' };
+
+export default function Appointments() {
+  const { user, api }  = useAuth();
+  const { socket }     = useSocket();
+  const [appts,  setAppts]   = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [detailAppt, setDetailAppt] = useState(null);
+
+  const load = useCallback(() => {
+    api.get('/appointments').then(r => setAppts(r.data)).finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    load();
+    if (user.role !== 'admin') api.get('/doctors').then(r => setDoctors(r.data));
+
+    if (!socket) return;
+    socket.on('appointment_update', load);
+    socket.on('appointment_deleted', load);
+    return () => { socket.off('appointment_update', load); socket.off('appointment_deleted', load); };
+  // eslint-disable-next-line
+  }, [socket]);
+
+  const updateStatus = async (id, status) => {
+    await api.put(`/appointments/${id}/status`, { status });
+    load();
+    setDetailAppt(null);
+  };
+
+  const deleteAppt = async (id) => {
+    if (!window.confirm('Cancel this appointment?')) return;
+    await api.delete(`/appointments/${id}`);
+    load();
+  };
+
+  const filtered = filter === 'all' ? appts : appts.filter(a => a.status === filter);
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1>Appointments</h1>
+          <p>{appts.length} total • {appts.filter(a => a.status === 'pending').length} pending</p>
+        </div>
+        {user.role === 'patient' && (
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Book Appointment</button>
+        )}
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {['all','pending','confirmed','completed','cancelled'].map(f => (
+          <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ textTransform: 'capitalize' }} onClick={() => setFilter(f)}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="loader"><div className="spinner"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="icon">📅</div>
+          <h3>No appointments</h3>
+          <p>{user.role === 'patient' ? 'Book your first appointment with a doctor.' : 'No appointments found.'}</p>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{user.role === 'patient' ? 'Doctor' : 'Patient'}</th>
+                  <th>Date & Time</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(a => (
+                  <tr key={a._id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="avatar sm">
+                          {user.role === 'patient'
+                            ? a.doctor_id?.name?.[0]
+                            : a.patient_id?.name?.[0]}
+                        </div>
+                        <div>
+                          <strong>
+                            {user.role === 'patient'
+                              ? `Dr. ${a.doctor_id?.name}`
+                              : a.patient_id?.name}
+                          </strong>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            {user.role === 'patient' ? a.doctor_id?.specialization : `Age: ${a.patient_id?.age}`}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <strong>{a.date ? format(new Date(a.date), 'MMM d, yyyy') : '—'}</strong>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.time}</div>
+                    </td>
+                    <td><span className={`badge ${TYPE_BADGE[a.type]}`}>{a.type}</span></td>
+                    <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                    <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.remarks || <span className="text-muted">—</span>}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setDetailAppt(a)}>View</button>
+                        {user.role === 'doctor' && a.status === 'pending' && (
+                          <>
+                            <button className="btn btn-success btn-sm" onClick={() => updateStatus(a._id, 'confirmed')}>✓</button>
+                            <button className="btn btn-danger btn-sm"  onClick={() => updateStatus(a._id, 'cancelled')}>✗</button>
+                          </>
+                        )}
+                        {user.role === 'doctor' && a.status === 'confirmed' && (
+                          <button className="btn btn-primary btn-sm" onClick={() => updateStatus(a._id, 'completed')}>Complete</button>
+                        )}
+                        {user.role === 'patient' && ['pending','confirmed'].includes(a.status) && (
+                          <button className="btn btn-danger btn-sm" onClick={() => deleteAppt(a._id)}>Cancel</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showModal && (
+        <BookModal doctors={doctors} onClose={() => setShowModal(false)} onBooked={load} api={api} user={user} />
+      )}
+
+      {detailAppt && (
+        <DetailModal appt={detailAppt} user={user} onClose={() => setDetailAppt(null)} onStatus={updateStatus} />
+      )}
+    </div>
+  );
+}
+
+function BookModal({ doctors, onClose, onBooked, api, user }) {
+  const [form, setForm] = useState({ doctor_id: '', date: '', time: '', remarks: '', type: 'in-person' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.post('/appointments', form);
+      onBooked(); onClose();
+    } catch (err) { setError(err.response?.data?.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📅 Book Appointment</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+            <div className="form-group">
+              <label className="form-label">Select Doctor</label>
+              <select className="form-select" name="doctor_id" value={form.doctor_id} onChange={handle} required>
+                <option value="">Choose a doctor</option>
+                {doctors.map(d => <option key={d._id} value={d._id}>Dr. {d.name} — {d.specialization}</option>)}
+              </select>
+            </div>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <input className="form-input" type="date" name="date" value={form.date} onChange={handle} min={new Date().toISOString().split('T')[0]} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Time</label>
+                <input className="form-input" type="time" name="time" value={form.time} onChange={handle} required />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Type</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['in-person', 'online'].map(t => (
+                  <button key={t} type="button" className={`btn btn-sm ${form.type === t ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ textTransform: 'capitalize' }} onClick={() => setForm(f => ({ ...f, type: t }))}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Remarks / Symptoms</label>
+              <textarea className="form-textarea" name="remarks" value={form.remarks} onChange={handle} placeholder="Describe your symptoms..." />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Booking…' : 'Book Appointment'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DetailModal({ appt, user, onClose, onStatus }) {
+  const d = appt.doctor_id;
+  const p = appt.patient_id;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Appointment Details</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Info label="Patient"     value={p?.name} />
+            <Info label="Doctor"      value={`Dr. ${d?.name}`} />
+            <Info label="Date"        value={appt.date ? format(new Date(appt.date), 'MMMM d, yyyy') : '—'} />
+            <Info label="Time"        value={appt.time} />
+            <Info label="Type"        value={appt.type} />
+            <Info label="Status"      value={<span className={`badge ${STATUS_BADGE[appt.status]}`}>{appt.status}</span>} />
+          </div>
+          {appt.remarks && <Info label="Remarks" value={appt.remarks} style={{ marginTop: 14 }} />}
+          {appt.notes   && <Info label="Doctor Notes" value={appt.notes} style={{ marginTop: 8 }} />}
+        </div>
+        <div className="modal-footer">
+          {user.role === 'doctor' && appt.status === 'pending' && (
+            <>
+              <button className="btn btn-success" onClick={() => onStatus(appt._id, 'confirmed')}>✓ Confirm</button>
+              <button className="btn btn-danger"  onClick={() => onStatus(appt._id, 'cancelled')}>✗ Cancel</button>
+            </>
+          )}
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const Info = ({ label, value, style }) => (
+  <div style={style}>
+    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>{label}</div>
+    <div style={{ fontSize: 14 }}>{value || '—'}</div>
+  </div>
+);
+
+
+
+
+
+
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+
+export default function Chat() {
+  const { user, api }  = useAuth();
+  const { socket, joinRoom, sendMessage, onMessage, onTyping, onStopTyping, emitTyping, stopTyping, isOnline } = useSocket();
+
+  const [contacts,  setContacts]  = useState([]);
+  const [activeContact, setActiveContact] = useState(null);
+  const [messages,  setMessages]  = useState([]);
+  const [input,     setInput]     = useState('');
+  const [isTyping,  setIsTyping]  = useState(false);
+  const messagesEnd = useRef(null);
+  const typingTimer = useRef(null);
+  const activeRoom  = useRef(null);
+
+  // Load contacts based on role
+  useEffect(() => {
+    const endpoint = user.role === 'patient' ? '/doctors' : '/patients';
+    api.get(endpoint).then(r => setContacts(r.data)).catch(() => {});
+  // eslint-disable-next-line
+  }, []);
+
+  // Join room and listen for messages when contact changes
+  useEffect(() => {
+    if (!activeContact || !socket) return;
+    const ids = [user._id, activeContact._id].sort();
+    const roomId = `chat_${ids[0]}_${ids[1]}`;
+    activeRoom.current = roomId;
+
+    joinRoom(roomId);
+
+    // Load message history from localStorage (demo) or API
+    const stored = localStorage.getItem(`vb_chat_${roomId}`);
+    setMessages(stored ? JSON.parse(stored) : []);
+
+    const unsubMsg  = onMessage(msg => {
+      setMessages(prev => {
+        const updated = [...prev, msg];
+        localStorage.setItem(`vb_chat_${roomId}`, JSON.stringify(updated));
+        return updated;
+      });
+    });
+    const unsubTyp  = onTyping(({ senderName }) => setIsTyping(senderName));
+    const unsubStop = onStopTyping(() => setIsTyping(false));
+
+    return () => { unsubMsg(); unsubTyp(); unsubStop(); };
+  // eslint-disable-next-line
+  }, [activeContact, socket]);
+
+  useEffect(() => {
+    messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleInput = (e) => {
+    setInput(e.target.value);
+    if (!activeRoom.current) return;
+    emitTyping({ roomId: activeRoom.current, senderName: user.name });
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => {
+      stopTyping({ roomId: activeRoom.current });
+    }, 1500);
+  };
+
+  const handleSend = () => {
+    if (!input.trim() || !activeContact) return;
+    const msg = {
+      roomId:     activeRoom.current,
+      message:    input.trim(),
+      senderId:   user._id,
+      senderName: user.name,
+      senderRole: user.role,
+      timestamp:  new Date(),
+    };
+    sendMessage(msg);
+    // Add to own messages immediately
+    setMessages(prev => {
+      const updated = [...prev, { ...msg, isSelf: true }];
+      localStorage.setItem(`vb_chat_${activeRoom.current}`, JSON.stringify(updated));
+      return updated;
+    });
+    setInput('');
+    stopTyping({ roomId: activeRoom.current });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const contactName = (c) => user.role === 'patient' ? `Dr. ${c.name}` : c.name;
+
+  return (
+    <div>
+      <div className="page-header" style={{ marginBottom: 16 }}>
+        <div><h1>Messages</h1><p>Real-time secure messaging</p></div>
+      </div>
+
+      <div className="card" style={{ padding: 0, height: 'calc(100vh - 200px)', display: 'flex', overflow: 'hidden' }}>
+        {/* Contact List */}
+        <div className="chat-list">
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            {user.role === 'patient' ? 'Your Doctors' : 'Your Patients'}
+          </div>
+          {contacts.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+              No contacts yet
+            </div>
+          ) : contacts.map(c => (
+            <div
+              key={c._id}
+              className={`chat-list-item ${activeContact?._id === c._id ? 'active' : ''}`}
+              onClick={() => setActiveContact(c)}
+            >
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div className="avatar sm">{c.name[0]}</div>
+                <div style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: isOnline(c._id) ? 'var(--success)' : 'var(--muted)',
+                  border: '1.5px solid var(--surface)',
+                }}/>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {contactName(c)}
+                </div>
+                <div style={{ fontSize: 11, color: isOnline(c._id) ? 'var(--success)' : 'var(--muted)' }}>
+                  {isOnline(c._id) ? 'Online' : 'Offline'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chat Window */}
+        <div className="chat-messages">
+          {!activeContact ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
+              <div style={{ fontSize: 48 }}>💬</div>
+              <div style={{ fontSize: 15 }}>Select a contact to start messaging</div>
+              <div style={{ fontSize: 13 }}>All conversations are end-to-end secure</div>
+            </div>
+          ) : (
+            <>
+              {/* Chat Header */}
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ position: 'relative' }}>
+                  <div className="avatar">{activeContact.name[0]}</div>
+                  <div style={{
+                    position: 'absolute', bottom: 1, right: 1,
+                    width: 9, height: 9, borderRadius: '50%',
+                    background: isOnline(activeContact._id) ? 'var(--success)' : 'var(--muted)',
+                    border: '2px solid var(--surface)',
+                  }}/>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{contactName(activeContact)}</div>
+                  <div style={{ fontSize: 11, color: isOnline(activeContact._id) ? 'var(--success)' : 'var(--muted)' }}>
+                    {isOnline(activeContact._id) ? '● Online' : '○ Offline'}
+                    {activeContact.specialization && ` • ${activeContact.specialization}`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="messages-area">
+                {messages.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, marginTop: 40 }}>
+                    No messages yet. Say hello! 👋
+                  </div>
+                ) : messages.map((m, i) => {
+                  const isSelf = m.senderId === user._id || m.isSelf;
+                  return (
+                    <div key={i} style={{ alignSelf: isSelf ? 'flex-end' : 'flex-start', maxWidth: '68%' }}>
+                      {!isSelf && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3, paddingLeft: 4 }}>{m.senderName}</div>}
+                      <div className={`msg-bubble ${isSelf ? 'sent' : 'recv'}`}>
+                        {m.message}
+                        <div className="msg-time">
+                          {m.timestamp ? format(new Date(m.timestamp), 'h:mm a') : ''}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {isTyping && (
+                  <div style={{ alignSelf: 'flex-start' }}>
+                    <div className="msg-bubble recv" style={{ padding: '8px 14px' }}>
+                      <span style={{ letterSpacing: 2, fontSize: 16 }}>···</span>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', marginLeft: 6 }}>{isTyping} is typing</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEnd} />
+              </div>
+
+              {/* Input */}
+              <div className="chat-input-row">
+                <textarea
+                  rows={1}
+                  placeholder={`Message ${contactName(activeContact)}...`}
+                  value={input}
+                  onChange={handleInput}
+                  onKeyDown={handleKeyDown}
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  style={{ flexShrink: 0, width: 40, height: 40, padding: 0, borderRadius: '50%', fontSize: 18 }}
+                >
+                  ➤
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const CHART_COLORS = ['#00c2ff', '#00ff9d', '#ff5e7d', '#9b6fff', '#ff9540'];
+
+const StatusBadge = ({ status }) => {
+  const map = { pending: 'badge-warning', confirmed: 'badge-info', completed: 'badge-success', cancelled: 'badge-danger', rescheduled: 'badge-purple' };
+  return <span className={`badge ${map[status] || 'badge-info'}`}>{status}</span>;
+};
+
+export default function Dashboard() {
+  const { user, api } = useAuth();
+  const { onlineUsers } = useSocket();
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/dashboard/stats')
+      .then(r => setData(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  if (loading) return <div className="loader"><div className="spinner"/></div>;
+
+  const s = data?.stats || {};
+  const recent = data?.recentAppointments || [];
+
+  // Mock weekly chart data
+  const weekData = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => ({
+    day: d, appointments: Math.floor(Math.random() * 8 + 2), records: Math.floor(Math.random() * 5 + 1),
+  }));
+
+  const renderAdminStats = () => (
+    <div className="stat-grid">
+      <StatCard icon="🧑‍⚕️" label="Total Patients"   value={s.patients}   color="blue"   trend="+12 this week" />
+      <StatCard icon="👨‍⚕️" label="Total Doctors"    value={s.doctors}    color="green"  trend={`${onlineUsers.length} online`} />
+      <StatCard icon="📅" label="Appointments"     value={s.appointments} color="purple" trend={`${s.pendingAppts} pending`} />
+      <StatCard icon="🏨" label="Hospitals"        value={s.hospitals}  color="orange" />
+      <StatCard icon="📋" label="Medical Records"  value={s.records}    color="blue"  />
+      <StatCard icon="🧪" label="Lab Reports"      value={s.labs}       color="red"   />
+    </div>
+  );
+
+  const renderDoctorStats = () => (
+    <div className="stat-grid">
+      <StatCard icon="👥" label="My Patients"     value={s.myPatients}     color="blue"   />
+      <StatCard icon="📅" label="Total Appts"     value={s.myAppointments} color="green"  trend={`${s.todayAppts} today`} />
+      <StatCard icon="⏳" label="Pending Appts"   value={s.pendingAppts}   color="orange" />
+      <StatCard icon="📋" label="Medical Records" value={s.myRecords}      color="purple" />
+    </div>
+  );
+
+  const renderPatientStats = () => (
+    <div className="stat-grid">
+      <StatCard icon="📅" label="Appointments"    value={s.appointments} color="blue"   trend={`${s.upcoming} upcoming`} />
+      <StatCard icon="📋" label="Medical Records" value={s.records}      color="green"  />
+      <StatCard icon="🧪" label="Lab Reports"     value={s.labs}         color="purple" />
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Welcome */}
+      <div className="page-header">
+        <div>
+          <h1>Good {getGreeting()}, {user?.name?.split(' ')[0]} 👋</h1>
+          <p>{format(new Date(), 'EEEE, MMMM d yyyy')} • {user?.role?.toUpperCase()}</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {user?.role === 'admin'   && renderAdminStats()}
+      {user?.role === 'doctor'  && renderDoctorStats()}
+      {user?.role === 'patient' && renderPatientStats()}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+        {/* Weekly Chart */}
+        <div className="card">
+          <div className="card-title">Weekly Activity</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={weekData}>
+              <defs>
+                <linearGradient id="cAppt" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#00c2ff" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#00c2ff" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="cRec" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#00ff9d" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#00ff9d" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="day" tick={{ fill: '#4a6a88', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#4a6a88', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#0c1422', border: '1px solid #1a2c42', borderRadius: 10, fontSize: 12 }} />
+              <Area type="monotone" dataKey="appointments" stroke="#00c2ff" fill="url(#cAppt)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="records"      stroke="#00ff9d" fill="url(#cRec)"  strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+            <Legend color="#00c2ff" label="Appointments" />
+            <Legend color="#00ff9d" label="Records" />
+          </div>
+        </div>
+
+        {/* Recent Appointments */}
+        <div className="card">
+          <div className="card-title">Recent Appointments</div>
+          {recent.length === 0 ? (
+            <div className="empty-state" style={{ padding: 20 }}>
+              <div className="icon">📅</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>No appointments yet</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {recent.slice(0, 5).map(a => (
+                <div key={a._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>
+                      {user?.role === 'patient' ? `Dr. ${a.doctor_id?.name}` : a.patient_id?.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {a.date ? format(new Date(a.date), 'MMM d') : '—'} • {a.time}
+                    </div>
+                  </div>
+                  <StatusBadge status={a.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Health Tips (patient only) */}
+      {user?.role === 'patient' && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-title">Health Tips 💡</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {TIPS.map((t, i) => (
+              <div key={i} style={{ padding: '14px', background: 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${CHART_COLORS[i % 5]}` }}>
+                <div style={{ fontSize: 20, marginBottom: 6 }}>{t.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{t.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const StatCard = ({ icon, label, value, color, trend }) => (
+  <div className={`stat-card ${color}`}>
+    <div className="stat-icon">{icon}</div>
+    <div className="stat-value">{value ?? '—'}</div>
+    <div className="stat-label">{label}</div>
+    {trend && <div className="stat-trend trend-up">{trend}</div>}
+  </div>
+);
+
+const Legend = ({ color, label }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+    <div style={{ width: 10, height: 10, borderRadius: 3, background: color }} />
+    {label}
+  </div>
+);
+
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Morning';
+  if (h < 17) return 'Afternoon';
+  return 'Evening';
+};
+
+const TIPS = [
+  { icon: '💧', title: 'Stay Hydrated', body: 'Drink at least 8 glasses of water daily to keep your body functioning optimally.' },
+  { icon: '🏃', title: 'Exercise Daily', body: 'Even 30 minutes of walking can significantly improve your cardiovascular health.' },
+  { icon: '😴', title: 'Quality Sleep', body: 'Aim for 7–9 hours of sleep per night to allow your body to recover and regenerate.' },
+];
+
+
+
+
+
+
+// ─── Doctors.js ───────────────────────────────────────────────────────────────
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { useNavigate } from 'react-router-dom';
+
+export function Doctors() {
+  const { api } = useAuth();
+  const { isOnline } = useSocket();
+  const navigate = useNavigate();
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search,  setSearch]  = useState('');
+  const [spec,    setSpec]    = useState('');
+
+  useEffect(() => {
+    api.get('/doctors').then(r => setDoctors(r.data)).finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  const specs = [...new Set(doctors.map(d => d.specialization).filter(Boolean))];
+  const filtered = doctors.filter(d =>
+    (!search || d.name.toLowerCase().includes(search.toLowerCase())) &&
+    (!spec   || d.specialization === spec)
+  );
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1>Doctors</h1><p>{filtered.length} of {doctors.length} doctors</p></div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ flex: 1, minWidth: 220 }}>
+          <span>🔍</span>
+          <input placeholder="Search doctors..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select className="form-select" style={{ width: 200 }} value={spec} onChange={e => setSpec(e.target.value)}>
+          <option value="">All Specializations</option>
+          {specs.map(s => <option key={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {loading ? <div className="loader"><div className="spinner"/></div> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          {filtered.length === 0 ? (
+            <div className="empty-state" style={{ gridColumn: '1/-1' }}>
+              <div className="icon">👨‍⚕️</div><h3>No doctors found</h3>
+            </div>
+          ) : filtered.map(d => (
+            <div key={d._id} className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
+                <div className="avatar lg" style={{ position: 'relative' }}>
+                  {d.name[0]}
+                  <div style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: '50%', background: isOnline(d._id) ? 'var(--success)' : 'var(--muted)', border: '2px solid var(--surface)' }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Dr. {d.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--accent)', marginTop: 2 }}>{d.specialization || 'General'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{d.hospital?.name || 'Independent'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                {d.phone && <div style={{ color: 'var(--text2)' }}>📞 {d.phone}</div>}
+                {d.email && <div style={{ color: 'var(--text2)' }}>✉️ {d.email}</div>}
+              </div>
+              <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => navigate('/appointments')}>
+                  📅 Book
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Patients.js ──────────────────────────────────────────────────────────────
+export function Patients() {
+  const { api } = useAuth();
+  const { isOnline } = useSocket();
+  const [patients, setPatients] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState('');
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    api.get('/patients').then(r => setPatients(r.data)).finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  const filtered = patients.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1>Patients</h1><p>{filtered.length} patients</p></div>
+      </div>
+
+      <div className="search-box" style={{ maxWidth: 380, marginBottom: 20 }}>
+        <span>🔍</span>
+        <input placeholder="Search patients..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {loading ? <div className="loader"><div className="spinner"/></div> : (
+        <div className="card" style={{ padding: 0 }}>
+          <table>
+            <thead>
+              <tr><th>Patient</th><th>Age / Gender</th><th>Blood Group</th><th>Contact</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => (
+                <tr key={p._id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className="avatar sm">{p.name[0]}</div>
+                      <strong>{p.name}</strong>
+                    </div>
+                  </td>
+                  <td>{p.age} / {p.gender}</td>
+                  <td>{p.blood_group ? <span className="badge badge-danger">{p.blood_group}</span> : '—'}</td>
+                  <td>{p.phone || '—'}</td>
+                  <td>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                      <div className={isOnline(p._id) ? 'online-dot' : 'offline-dot'} />
+                      {isOnline(p._id) ? 'Online' : 'Offline'}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>View</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {selected && <PatientModal p={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+function PatientModal({ p, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><h2>Patient Profile</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="modal-body">
+          <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+            <div className="avatar lg">{p.name[0]}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{p.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.email}</div>
+              {p.blood_group && <span className="badge badge-danger" style={{ marginTop: 6 }}>{p.blood_group}</span>}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {[['Age', p.age],['Gender', p.gender],['Phone', p.phone],['Address', p.address],['Aadhar Verified', p.aadhar_verified ? '✅ Yes' : '❌ No']].map(([l, v]) => (
+              v && <div key={l}><div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>{l}</div><div>{v}</div></div>
+            ))}
+          </div>
+          {p.allergies?.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Allergies</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {p.allergies.map((a, i) => <span key={i} className="badge badge-danger">{a}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer"><button className="btn btn-outline" onClick={onClose}>Close</button></div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Hospitals.js ─────────────────────────────────────────────────────────────
+export function Hospitals() {
+  const { api } = useAuth();
+  const [hospitals, setHospitals] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editItem,  setEditItem]  = useState(null);
+
+  const load = () => api.get('/hospitals').then(r => setHospitals(r.data)).finally(() => setLoading(false));
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const remove = async (id) => {
+    if (window.confirm('Deactivate this hospital?')) { await api.delete(`/hospitals/${id}`); load(); }
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1>Hospitals</h1><p>{hospitals.length} registered hospitals</p></div>
+        <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowModal(true); }}>+ Add Hospital</button>
+      </div>
+
+      {loading ? <div className="loader"><div className="spinner"/></div> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {hospitals.map(h => (
+            <div key={h._id} className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div style={{ fontSize: 32 }}>🏨</div>
+                <span className={`badge ${h.type === 'government' ? 'badge-success' : h.type === 'private' ? 'badge-info' : 'badge-warning'}`}>{h.type}</span>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{h.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>📍 {h.address}</div>
+              {h.phone && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>📞 {h.phone}</div>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setEditItem(h); setShowModal(true); }}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => remove(h._id)}>Remove</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <HospitalModal item={editItem} onClose={() => setShowModal(false)} onSaved={load} api={api} />
+      )}
+    </div>
+  );
+}
+
+function HospitalModal({ item, onClose, onSaved, api }) {
+  const [form, setForm] = useState({ name: item?.name || '', address: item?.address || '', phone: item?.phone || '', email: item?.email || '', type: item?.type || 'private' });
+  const [loading, setLoading] = useState(false);
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const submit = async (e) => {
+    e.preventDefault(); setLoading(true);
+    try {
+      item ? await api.put(`/hospitals/${item._id}`, form) : await api.post('/hospitals', form);
+      onSaved(); onClose();
+    } finally { setLoading(false); }
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><h2>{item ? 'Edit' : 'Add'} Hospital</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            <div className="form-group"><label className="form-label">Hospital Name</label><input className="form-input" name="name" value={form.name} onChange={handle} required /></div>
+            <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" value={form.address} onChange={handle} required /></div>
+            <div className="form-grid">
+              <div className="form-group"><label className="form-label">Phone</label><input className="form-input" name="phone" value={form.phone} onChange={handle} /></div>
+              <div className="form-group"><label className="form-label">Email</label><input className="form-input" name="email" value={form.email} onChange={handle} /></div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Type</label>
+              <select className="form-select" name="type" value={form.type} onChange={handle}>
+                <option>government</option><option>private</option><option>clinic</option>
+              </select>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Doctors;
+
+
+
+
+
+export { Hospitals as default } from './Doctors';
+
+
+
+
+// ─── LabReports.js ────────────────────────────────────────────────────────────
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+
+export function LabReports() {
+  const { user, api } = useAuth();
+  const { socket }    = useSocket();
+  const [reports,  setReports]  = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [doctors,  setDoctors]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [showModal, setShowModal] = useState(false);
+
+  const load = useCallback(() => {
+    api.get('/lab-reports').then(r => setReports(r.data)).finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    load();
+    api.get('/patients').then(r => setPatients(r.data)).catch(() => {});
+    api.get('/doctors').then(r => setDoctors(r.data)).catch(() => {});
+    if (!socket) return;
+    socket.on('lab_report_update', load);
+    return () => socket.off('lab_report_update', load);
+  // eslint-disable-next-line
+  }, [socket]);
+
+  const updateStatus = async (id, status, results) => {
+    await api.put(`/lab-reports/${id}/status`, { status, results });
+    load();
+  };
+
+  const STATUS_BADGE = { pending: 'badge-warning', processing: 'badge-info', completed: 'badge-success' };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1>Lab Reports</h1><p>{reports.length} total reports</p></div>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Upload Report</button>
+      </div>
+
+      {loading ? <div className="loader"><div className="spinner"/></div> : (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Record ID</th><th>Patient</th><th>Referred By</th><th>Test</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {reports.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>No lab reports yet</td></tr>
+                ) : reports.map(r => (
+                  <tr key={r._id}>
+                    <td><code style={{ fontSize: 12, color: 'var(--accent)' }}>{r.record_id}</code></td>
+                    <td><strong>{r.patient_id?.name}</strong><div style={{ fontSize: 11, color: 'var(--muted)' }}>Age: {r.patient_id?.age}</div></td>
+                    <td>{r.referred_by ? `Dr. ${r.referred_by?.name}` : <span className="text-muted">Self</span>}</td>
+                    <td>{r.test_name || <span className="text-muted">—</span>}</td>
+                    <td>{r.uploaded_at ? format(new Date(r.uploaded_at), 'MMM d, yyyy') : '—'}</td>
+                    <td><span className={`badge ${STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {r.upload_files?.length > 0 && (
+                          <a href={r.upload_files[0]} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">📄 View</a>
+                        )}
+                        {(user.role === 'doctor' || user.role === 'admin') && r.status !== 'completed' && (
+                          <button className="btn btn-success btn-sm" onClick={() => updateStatus(r._id, 'completed', '')}>Mark Done</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showModal && (
+        <UploadModal patients={patients} doctors={doctors} user={user} onClose={() => setShowModal(false)} onUploaded={load} api={api} />
+      )}
+    </div>
+  );
+}
+
+function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
+  const [form, setForm] = useState({ patient_id: user.role === 'patient' ? user._id : '', referred_by: '', test_name: '', test_type: '', notes: '' });
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
+      files.forEach(f => fd.append('files', f));
+      await api.post('/lab-reports', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      onUploaded(); onClose();
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><h2>🧪 Upload Lab Report</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {user.role !== 'patient' && (
+              <div className="form-group">
+                <label className="form-label">Patient</label>
+                <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
+                  <option value="">Select Patient</option>
+                  {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Referred By (Doctor)</label>
+              <select className="form-select" value={form.referred_by} onChange={e => setForm(f => ({ ...f, referred_by: e.target.value }))}>
+                <option value="">Self / Walk-in</option>
+                {doctors.map(d => <option key={d._id} value={d._id}>Dr. {d.name} — {d.specialization}</option>)}
+              </select>
+            </div>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Test Name</label>
+                <input className="form-input" value={form.test_name} onChange={e => setForm(f => ({ ...f, test_name: e.target.value }))} placeholder="Complete Blood Count" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Test Type</label>
+                <input className="form-input" value={form.test_type} onChange={e => setForm(f => ({ ...f, test_type: e.target.value }))} placeholder="Blood / Urine / X-Ray..." />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Upload Files (PDF / Images)</label>
+              <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFiles(Array.from(e.target.files))}
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }} />
+              {files.length > 0 && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4 }}>{files.length} file(s) selected</div>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Uploading…' : 'Upload Report'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default LabReports;
+
+
+
+
+
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+export default function Login() {
+  const { login, error, setError } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm]     = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await login(form.email, form.password);
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const demo = (role) => {
+    const creds = {
+      admin:   { email: 'admin@vitalbyte.com',   password: 'admin123' },
+      doctor:  { email: 'doctor@vitalbyte.com',  password: 'doctor123' },
+      patient: { email: 'patient@vitalbyte.com', password: 'patient123' },
+    };
+    setForm(creds[role]);
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div style={{ fontSize: 40, marginBottom: 8 }}>💊</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 28, fontWeight: 800 }}>VitalByte</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>DIGITAL HEALTH RECORDS</div>
+        </div>
+
+        <div className="auth-title">Welcome back</div>
+        <div className="auth-sub">Sign in to your account to continue</div>
+
+        {error && (
+          <div style={{ background: 'rgba(255,77,109,.12)', border: '1px solid rgba(255,77,109,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label className="form-label">Email Address</label>
+            <input className="form-input" type="email" name="email" value={form.email} onChange={handle} placeholder="you@example.com" required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" name="password" value={form.password} onChange={handle} placeholder="••••••••" required />
+          </div>
+          <button className="btn btn-primary w-full" style={{ marginTop: 8 }} disabled={loading}>
+            {loading ? '⏳ Signing in…' : '→ Sign In'}
+          </button>
+        </form>
+
+        {/* Demo logins */}
+        <div style={{ marginTop: 20, padding: '14px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>Quick Demo Login</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['admin', 'doctor', 'patient'].map(r => (
+              <button key={r} className="btn btn-ghost btn-sm" style={{ flex: 1, textTransform: 'capitalize' }} onClick={() => demo(r)}>{r}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="auth-footer">
+          Don't have an account? <span onClick={() => navigate('/register')}>Register here</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { format } from 'date-fns';
+
+export default function MedicalRecords() {
+  const { user, api } = useAuth();
+  const { socket }    = useSocket();
+  const [records,  setRecords]  = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [selected,  setSelected]  = useState(null);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(() => {
+    api.get('/medical-records').then(r => setRecords(r.data)).finally(() => setLoading(false));
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    load();
+    if (user.role === 'doctor') api.get('/patients').then(r => setPatients(r.data));
+    if (!socket) return;
+    socket.on('record_added', load);
+    return () => socket.off('record_added', load);
+  // eslint-disable-next-line
+  }, [socket]);
+
+  const filtered = records.filter(r =>
+    r.patient_id?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.diagnosis?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1>Medical Records</h1>
+          <p>{records.length} records found</p>
+        </div>
+        {user.role === 'doctor' && (
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Record</button>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="search-box" style={{ maxWidth: 380, marginBottom: 20 }}>
+        <span>🔍</span>
+        <input placeholder="Search by patient name or diagnosis..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {loading ? (
+        <div className="loader"><div className="spinner"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="icon">📋</div>
+          <h3>No records found</h3>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filtered.map(r => (
+            <div key={r._id} className="card" style={{ cursor: 'pointer', padding: '18px 20px' }} onClick={() => setSelected(r)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                  <div className="avatar" style={{ width: 44, height: 44, fontSize: 18 }}>
+                    {r.patient_id?.name?.[0]}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{r.patient_id?.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                      By Dr. {r.doctor_id?.name} • {r.date ? format(new Date(r.date), 'MMM d, yyyy') : '—'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {r.is_emergency && <span className="badge badge-danger" style={{ marginBottom: 6 }}>Emergency</span>}
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.prescriptions?.length || 0} prescriptions</div>
+                </div>
+              </div>
+
+              {r.diagnosis && (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, borderLeft: '3px solid var(--accent)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5 }}>Diagnosis</div>
+                  <div style={{ fontSize: 13, marginTop: 3 }}>{r.diagnosis}</div>
+                </div>
+              )}
+
+              {r.vital_signs && Object.values(r.vital_signs).some(Boolean) && (
+                <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                  {r.vital_signs.blood_pressure  && <Vital icon="❤️"  label="BP"    value={r.vital_signs.blood_pressure} />}
+                  {r.vital_signs.pulse           && <Vital icon="💓"  label="Pulse" value={r.vital_signs.pulse} />}
+                  {r.vital_signs.temperature     && <Vital icon="🌡️" label="Temp"  value={r.vital_signs.temperature} />}
+                  {r.vital_signs.oxygen_level    && <Vital icon="💨"  label="SpO₂"  value={r.vital_signs.oxygen_level} />}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <AddRecordModal patients={patients} onClose={() => setShowModal(false)} onAdded={load} api={api} />
+      )}
+
+      {selected && (
+        <RecordDetailModal record={selected} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}
+
+const Vital = ({ icon, label, value }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--surface3)', borderRadius: 8, fontSize: 12 }}>
+    <span>{icon}</span>
+    <span style={{ color: 'var(--muted)' }}>{label}:</span>
+    <span style={{ fontWeight: 500 }}>{value}</span>
+  </div>
+);
+
+function AddRecordModal({ patients, onClose, onAdded, api }) {
+  const [form, setForm] = useState({
+    patient_id: '', date: new Date().toISOString().split('T')[0],
+    diagnosis: '', symptoms: '', other_records: '', is_emergency: false,
+    vital_signs: { blood_pressure: '', pulse: '', temperature: '', weight: '', height: '', oxygen_level: '' },
+    prescriptions: [{ medicine: '', dosage: '', frequency: '', duration: '', notes: '' }],
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleVital = e => setForm(f => ({ ...f, vital_signs: { ...f.vital_signs, [e.target.name]: e.target.value } }));
+  const handleRx = (i, e) => setForm(f => {
+    const p = [...f.prescriptions];
+    p[i] = { ...p[i], [e.target.name]: e.target.value };
+    return { ...f, prescriptions: p };
+  });
+  const addRx = () => setForm(f => ({ ...f, prescriptions: [...f.prescriptions, { medicine: '', dosage: '', frequency: '', duration: '', notes: '' }] }));
+  const removeRx = i => setForm(f => ({ ...f, prescriptions: f.prescriptions.filter((_, idx) => idx !== i) }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = { ...form, symptoms: form.symptoms.split(',').map(s => s.trim()).filter(Boolean) };
+      await api.post('/medical-records', payload);
+      onAdded(); onClose();
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📋 Add Medical Record</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Patient</label>
+                <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
+                  <option value="">Select Patient</option>
+                  {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <input className="form-input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Diagnosis</label>
+              <input className="form-input" value={form.diagnosis} onChange={e => setForm(f => ({ ...f, diagnosis: e.target.value }))} placeholder="Primary diagnosis..." />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Symptoms (comma separated)</label>
+              <input className="form-input" value={form.symptoms} onChange={e => setForm(f => ({ ...f, symptoms: e.target.value }))} placeholder="Fever, Headache, Cough..." />
+            </div>
+
+            {/* Vital Signs */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Vital Signs</div>
+              <div className="form-grid-3">
+                {[['blood_pressure','BP (mmHg)'],['pulse','Pulse (bpm)'],['temperature','Temp (°C)'],['weight','Weight (kg)'],['height','Height (cm)'],['oxygen_level','SpO₂ (%)']].map(([k, label]) => (
+                  <div className="form-group" key={k} style={{ marginBottom: 8 }}>
+                    <label className="form-label">{label}</label>
+                    <input className="form-input" name={k} value={form.vital_signs[k]} onChange={handleVital} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Prescriptions */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Prescriptions</div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={addRx}>+ Add</button>
+              </div>
+              {form.prescriptions.map((rx, i) => (
+                <div key={i} style={{ padding: 12, background: 'var(--surface2)', borderRadius: 10, marginBottom: 10, position: 'relative' }}>
+                  {form.prescriptions.length > 1 && (
+                    <button type="button" style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14 }} onClick={() => removeRx(i)}>✕</button>
+                  )}
+                  <div className="form-grid">
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Medicine</label>
+                      <input className="form-input" name="medicine" value={rx.medicine} onChange={e => handleRx(i, e)} placeholder="Paracetamol 500mg" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Dosage</label>
+                      <input className="form-input" name="dosage" value={rx.dosage} onChange={e => handleRx(i, e)} placeholder="1 tablet" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Frequency</label>
+                      <input className="form-input" name="frequency" value={rx.frequency} onChange={e => handleRx(i, e)} placeholder="3x daily" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Duration</label>
+                      <input className="form-input" name="duration" value={rx.duration} onChange={e => handleRx(i, e)} placeholder="5 days" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Additional Notes</label>
+              <textarea className="form-textarea" value={form.other_records} onChange={e => setForm(f => ({ ...f, other_records: e.target.value }))} />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+              <input type="checkbox" checked={form.is_emergency} onChange={e => setForm(f => ({ ...f, is_emergency: e.target.checked }))} />
+              Mark as Emergency Record
+            </label>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving…' : 'Save Record'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function RecordDetailModal({ record: r, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Medical Record</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <Info label="Patient"  value={r.patient_id?.name} />
+            <Info label="Doctor"   value={`Dr. ${r.doctor_id?.name}`} />
+            <Info label="Date"     value={r.date ? format(new Date(r.date), 'MMMM d, yyyy') : '—'} />
+            <Info label="Diagnosis" value={r.diagnosis} />
+          </div>
+
+          {r.symptoms?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Symptoms</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {r.symptoms.map((s, i) => <span key={i} className="badge badge-info">{s}</span>)}
+              </div>
+            </div>
+          )}
+
+          {r.prescriptions?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 8 }}>Prescriptions</div>
+              {r.prescriptions.map((rx, i) => (
+                <div key={i} style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 8 }}>
+                  <strong>{rx.medicine}</strong>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                    {rx.dosage} • {rx.frequency} • {rx.duration}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {r.other_records && <Info label="Notes" value={r.other_records} />}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const Info = ({ label, value }) => (
+  <div>
+    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>{label}</div>
+    <div style={{ fontSize: 13 }}>{value || '—'}</div>
+  </div>
+);
+
+
+
+
+
+
+
+export { Patients as default } from './Doctors';
+
+
+
+
+
+// ─── Profile.js ───────────────────────────────────────────────────────────────
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+
+export function Profile() {
+  const { user, api, updateUser } = useAuth();
+  const [form,    setForm]    = useState({ ...user });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error,   setError]   = useState('');
+  const [tab,     setTab]     = useState('profile');
+  const [pwForm,  setPwForm]  = useState({ currentPassword: '', newPassword: '', confirm: '' });
+
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const saveProfile = async (e) => {
+    e.preventDefault(); setLoading(true); setSuccess(''); setError('');
+    try {
+      const { data } = await api.put(`/users/${user._id}`, form);
+      updateUser(data);
+      setSuccess('Profile updated successfully!');
+    } catch { setError('Failed to update profile'); }
+    finally { setLoading(false); }
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.newPassword !== pwForm.confirm) return setError('Passwords do not match');
+    setLoading(true); setSuccess(''); setError('');
+    try {
+      await api.put('/auth/change-password', { currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword });
+      setSuccess('Password changed successfully!');
+      setPwForm({ currentPassword: '', newPassword: '', confirm: '' });
+    } catch (err) { setError(err.response?.data?.message || 'Failed'); }
+    finally { setLoading(false); }
+  };
+
+  const initials = user?.name?.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <div className="page-header">
+        <div><h1>My Profile</h1><p>Manage your account information</p></div>
+      </div>
+
+      {/* Profile Header */}
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+        <div className="avatar" style={{ width: 72, height: 72, fontSize: 28 }}>{initials}</div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{user.name}</div>
+          <div style={{ fontSize: 13, color: 'var(--accent)', marginTop: 2, textTransform: 'capitalize' }}>{user.role}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{user.email}</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {user.aadhar_verified ? <span className="badge badge-success">✓ Aadhar Verified</span> : <span className="badge badge-warning">Aadhar Pending</span>}
+          <span className={`badge ${user.authStatus === 'verified' ? 'badge-success' : 'badge-warning'}`}>{user.authStatus}</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+        {['profile','security'].map(t => (
+          <button key={t} className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ textTransform: 'capitalize' }} onClick={() => { setTab(t); setSuccess(''); setError(''); }}>
+            {t === 'profile' ? '👤 Profile' : '🔐 Security'}
+          </button>
+        ))}
+      </div>
+
+      {success && <div style={{ background: 'rgba(0,230,138,.12)', border: '1px solid rgba(0,230,138,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--success)' }}>{success}</div>}
+      {error   && <div style={{ background: 'rgba(255,77,109,.12)', border: '1px solid rgba(255,77,109,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>{error}</div>}
+
+      {tab === 'profile' && (
+        <form onSubmit={saveProfile} className="card">
+          <div className="form-grid">
+            <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" name="name" value={form.name || ''} onChange={handle} /></div>
+            <div className="form-group"><label className="form-label">Phone</label><input className="form-input" name="phone" value={form.phone || ''} onChange={handle} /></div>
+            <div className="form-group"><label className="form-label">Age</label><input className="form-input" type="number" name="age" value={form.age || ''} onChange={handle} /></div>
+            <div className="form-group">
+              <label className="form-label">Gender</label>
+              <select className="form-select" name="gender" value={form.gender || ''} onChange={handle}>
+                <option value="">Select</option><option>male</option><option>female</option><option>other</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Blood Group</label>
+              <select className="form-select" name="blood_group" value={form.blood_group || ''} onChange={handle}>
+                <option value="">Select</option>
+                {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => <option key={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="form-label">Aadhar Number</label><input className="form-input" name="aadhar_number" value={form.aadhar_number || ''} onChange={handle} /></div>
+          </div>
+          <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" value={form.address || ''} onChange={handle} /></div>
+          {user.role === 'doctor' && (
+            <div className="form-grid">
+              <div className="form-group"><label className="form-label">Specialization</label><input className="form-input" name="specialization" value={form.specialization || ''} onChange={handle} /></div>
+              <div className="form-group"><label className="form-label">License Number</label><input className="form-input" name="license_number" value={form.license_number || ''} onChange={handle} /></div>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving…' : 'Save Changes'}</button>
+          </div>
+        </form>
+      )}
+
+      {tab === 'security' && (
+        <form onSubmit={changePassword} className="card">
+          <div style={{ marginBottom: 16, fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 700 }}>Change Password</div>
+          <div className="form-group"><label className="form-label">Current Password</label><input className="form-input" type="password" value={pwForm.currentPassword} onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))} required /></div>
+          <div className="form-group"><label className="form-label">New Password</label><input className="form-input" type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} required /></div>
+          <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} required /></div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Updating…' : 'Update Password'}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ─── AdminUsers.js ────────────────────────────────────────────────────────────
+export function AdminUsers() {
+  const { api } = useAuth();
+  const [users,   setUsers]   = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filter,  setFilter]  = React.useState('all');
+  const [search,  setSearch]  = React.useState('');
+
+  const load = () => api.get('/users').then(r => setUsers(r.data)).finally(() => setLoading(false));
+  React.useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const verify = async (id, status) => {
+    await api.put(`/users/${id}/verify`, { status }); load();
+  };
+
+  const filtered = users.filter(u =>
+    (filter === 'all' || u.role === filter) &&
+    u.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const ROLE_BADGE = { patient: 'badge-info', doctor: 'badge-success', admin: 'badge-purple', lab_technician: 'badge-warning' };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1>User Management</h1><p>{users.length} total users</p></div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <div className="search-box" style={{ flex: 1 }}>
+          <span>🔍</span><input placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        {['all','patient','doctor','admin'].map(f => (
+          <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ textTransform: 'capitalize' }} onClick={() => setFilter(f)}>{f}</button>
+        ))}
+      </div>
+
+      {loading ? <div className="loader"><div className="spinner"/></div> : (
+        <div className="card" style={{ padding: 0 }}>
+          <table>
+            <thead>
+              <tr><th>User</th><th>Role</th><th>Contact</th><th>Verification</th><th>Joined</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => (
+                <tr key={u._id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className="avatar sm">{u.name[0]}</div>
+                      <div><strong>{u.name}</strong><div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div></div>
+                    </div>
+                  </td>
+                  <td><span className={`badge ${ROLE_BADGE[u.role] || 'badge-info'}`}>{u.role}</span></td>
+                  <td>{u.phone || '—'}</td>
+                  <td>
+                    <span className={`badge ${u.authStatus === 'verified' ? 'badge-success' : u.authStatus === 'rejected' ? 'badge-danger' : 'badge-warning'}`}>
+                      {u.authStatus || 'pending'}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: 12 }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {(!u.authStatus || u.authStatus === 'pending') && (
+                        <>
+                          <button className="btn btn-success btn-sm" onClick={() => verify(u._id, 'verified')}>✓ Verify</button>
+                          <button className="btn btn-danger btn-sm"  onClick={() => verify(u._id, 'rejected')}>✗ Reject</button>
+                        </>
+                      )}
+                      {u.authStatus === 'verified' && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => verify(u._id, 'pending')}>Revoke</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default Profile;
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+export default function Register() {
+  const { register, error, setError, api } = useAuth();
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hospitals, setHospitals] = useState([]);
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', confirmPassword: '',
+    role: 'patient', age: '', gender: '', blood_group: '',
+    phone: '', address: '', allergies: '',
+    specialization: '', license_number: '', registration_number: '', hospital: '',
+  });
+
+  useEffect(() => {
+    api.get('/hospitals').then(r => setHospitals(r.data)).catch(() => { });
+    // eslint-disable-next-line
+  }, []);
+
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (form.password !== form.confirmPassword) return setError('Passwords do not match');
+    setLoading(true);
+    try {
+      const payload = {
+        ...form,
+        hospital: form.hospital || null, // Convert empty string to null
+        allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()) : []
+      };
+      delete payload.confirmPassword;
+      await register(payload);
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  return (
+    <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: 40 }}>
+      <div className="auth-card" style={{ maxWidth: 560 }}>
+        <div className="auth-logo">
+          <div style={{ fontSize: 32, marginBottom: 6 }}>💊</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 24, fontWeight: 800 }}>VitalByte</div>
+        </div>
+
+        <div className="auth-title">Create Account</div>
+        <div className="auth-sub">Join VitalByte for seamless health record management</div>
+
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          {[1, 2].map(s => (
+            <div key={s} style={{
+              flex: 1, height: 3, borderRadius: 99,
+              background: s <= step ? 'var(--accent)' : 'var(--border)',
+              transition: 'background .3s',
+            }} />
+          ))}
+        </div>
+
+        {error && (
+          <div style={{ background: 'rgba(255,77,109,.12)', border: '1px solid rgba(255,77,109,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={submit}>
+          {step === 1 && (
+            <>
+              <div style={{ marginBottom: 16 }}>
+                <label className="form-label">I am a</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {['patient', 'doctor', 'admin'].map(r => (
+                    <button key={r} type="button"
+                      className={`btn btn-sm ${form.role === r ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ flex: 1, textTransform: 'capitalize' }}
+                      onClick={() => setForm(f => ({ ...f, role: r }))}
+                    >{r}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input className="form-input" name="name" value={form.name} onChange={handle} placeholder="Dr. John Smith" required />
+              </div>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input className="form-input" type="email" name="email" value={form.email} onChange={handle} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" name="phone" value={form.phone} onChange={handle} placeholder="+91..." />
+                </div>
+              </div>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Password</label>
+                  <input className="form-input" type="password" name="password" value={form.password} onChange={handle} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirm Password</label>
+                  <input className="form-input" type="password" name="confirmPassword" value={form.confirmPassword} onChange={handle} required />
+                </div>
+              </div>
+
+              <button type="button" className="btn btn-primary w-full" onClick={() => { setError(''); setStep(2); }}>
+                Next →
+              </button>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Age</label>
+                  <input className="form-input" type="number" name="age" value={form.age} onChange={handle} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Gender</label>
+                  <select className="form-select" name="gender" value={form.gender} onChange={handle}>
+                    <option value="">Select</option>
+                    <option>male</option><option>female</option><option>other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Blood Group</label>
+                  <select className="form-select" name="blood_group" value={form.blood_group} onChange={handle}>
+                    <option value="">Select</option>
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Address</label>
+                  <input className="form-input" name="address" value={form.address} onChange={handle} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Allergies (comma separated)</label>
+                <input className="form-input" name="allergies" value={form.allergies} onChange={handle} placeholder="Penicillin, Peanuts..." />
+              </div>
+
+              {form.role === 'doctor' && (
+                <>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Doctor Details</div>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label className="form-label">Specialization</label>
+                      <input className="form-input" name="specialization" value={form.specialization} onChange={handle} placeholder="Cardiology" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Hospital</label>
+                      <select className="form-select" name="hospital" value={form.hospital} onChange={handle}>
+                        <option value="">Select Hospital</option>
+                        {hospitals.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label className="form-label">License Number</label>
+                      <input className="form-input" name="license_number" value={form.license_number} onChange={handle} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Registration Number</label>
+                      <input className="form-input" name="registration_number" value={form.registration_number} onChange={handle} />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                <button type="button" className="btn btn-outline" onClick={() => setStep(1)}>← Back</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+                  {loading ? '⏳ Creating…' : '✓ Create Account'}
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+
+        <div className="auth-footer">
+          Already have an account? <span onClick={() => navigate('/login')}>Sign in</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Appointments from './pages/Appointments';
+import MedicalRecords from './pages/MedicalRecords';
+import LabReports from './pages/LabReports';
+import Doctors from './pages/Doctors';
+import Patients from './pages/Patients';
+import Hospitals from './pages/Hospitals';
+import Chat from './pages/Chat';
+import Profile from './pages/Profile';
+import AdminUsers from './pages/AdminUsers';
+import './index.css';
+
+const ProtectedRoute = ({ children, roles }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loader"><div className="spinner"/></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  return children;
+};
+
+const AppRoutes = () => {
+  const { user } = useAuth();
+  return (
+    <SocketProvider userId={user?._id}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login"    element={!user ? <Login />    : <Navigate to="/" replace />} />
+          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="appointments"    element={<Appointments />} />
+            <Route path="medical-records" element={<MedicalRecords />} />
+            <Route path="lab-reports"     element={<LabReports />} />
+            <Route path="doctors"         element={<ProtectedRoute roles={['admin','patient']}><Doctors /></ProtectedRoute>} />
+            <Route path="patients"        element={<ProtectedRoute roles={['admin','doctor']}><Patients /></ProtectedRoute>} />
+            <Route path="hospitals"       element={<ProtectedRoute roles={['admin']}><Hospitals /></ProtectedRoute>} />
+            <Route path="chat"            element={<Chat />} />
+            <Route path="profile"         element={<Profile />} />
+            <Route path="admin/users"     element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </SocketProvider>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}
+
+
+
+
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+
+:root {
+  --bg:       #04080f;
+  --surface:  #0c1422;
+  --surface2: #111d2e;
+  --surface3: #162237;
+  --border:   #1a2c42;
+  --border2:  #1f3350;
+  --accent:   #00c2ff;
+  --accent2:  #00ff9d;
+  --accent3:  #ff5e7d;
+  --purple:   #9b6fff;
+  --orange:   #ff9540;
+  --text:     #e8f4ff;
+  --text2:    #a8c5dd;
+  --muted:    #4a6a88;
+  --danger:   #ff4d6d;
+  --warning:  #ffb830;
+  --success:  #00e68a;
+  --radius:   12px;
+  --radius-lg:18px;
+  --shadow:   0 4px 24px rgba(0,0,0,.4);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.6);
+  --font-head:'Syne', sans-serif;
+  --font-body:'DM Sans', sans-serif;
+  --sidebar-w:240px;
+  --topbar-h: 64px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+/* TYPOGRAPHY */
+h1,h2,h3,h4,h5 { font-family: var(--font-head); line-height: 1.2; }
+
+/* LAYOUT */
+.app-layout { display: flex; min-height: 100vh; }
+.main-area  { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.page-body  { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+/* SIDEBAR */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.sidebar-logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-row { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.logo-name { font-family: var(--font-head); font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+.logo-tagline { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 1px; }
+
+.sidebar-nav { padding: 16px 0; flex: 1; }
+.nav-section { margin-bottom: 18px; }
+.nav-label {
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.2px;
+  padding: 0 20px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 20px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  font-size: 13.5px; color: var(--text2);
+  transition: all .15s;
+  user-select: none;
+  text-decoration: none;
+}
+.nav-item:hover { background: rgba(0,194,255,.06); color: var(--text); }
+.nav-item.active {
+  background: rgba(0,194,255,.1);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+.nav-icon { font-size: 16px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent3);
+  color: #fff; font-size: 10px;
+  padding: 1px 6px; border-radius: 20px; font-weight: 700;
+}
+
+.sidebar-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+.user-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #04080f;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar.lg { width: 56px; height: 56px; font-size: 22px; }
+.user-info .u-name { font-size: 13px; font-weight: 500; }
+.user-info .u-role { font-size: 10px; color: var(--muted); text-transform: capitalize; }
+
+/* TOPBAR */
+.topbar {
+  height: var(--topbar-h);
+  background: rgba(4,8,15,.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 32px;
+  gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+  flex-shrink: 0;
+}
+.topbar-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; flex: 1; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.icon-btn {
+  width: 36px; height: 36px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; transition: all .15s;
+  position: relative;
+}
+.icon-btn:hover { background: var(--surface3); border-color: var(--accent); }
+.badge-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px;
+  background: var(--accent3); border-radius: 50%;
+  border: 1.5px solid var(--bg);
+}
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+.card-lg { padding: 28px; }
+.card-sm { padding: 14px 16px; }
+.card-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+
+/* STAT CARDS */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative; overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.stat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; right: 0;
+  width: 80px; height: 80px;
+  border-radius: 0 var(--radius-lg) 0 80px;
+  opacity: .08;
+}
+.stat-card.blue::before   { background: var(--accent); }
+.stat-card.green::before  { background: var(--accent2); }
+.stat-card.red::before    { background: var(--accent3); }
+.stat-card.purple::before { background: var(--purple); }
+.stat-card.orange::before { background: var(--orange); }
+.stat-icon { font-size: 26px; margin-bottom: 10px; }
+.stat-value { font-family: var(--font-head); font-size: 28px; font-weight: 800; line-height: 1; }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.stat-trend { font-size: 11px; margin-top: 6px; }
+.trend-up   { color: var(--success); }
+.trend-down { color: var(--danger); }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 18px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; transition: all .15s; font-family: var(--font-body);
+  white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #04080f; }
+.btn-primary:hover { background: #00aee6; }
+.btn-success { background: var(--success); color: #04080f; }
+.btn-success:hover { background: #00cc7a; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #e6003f; }
+.btn-outline {
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost { background: var(--surface2); color: var(--text2); }
+.btn-ghost:hover { background: var(--surface3); color: var(--text); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+.btn-lg { padding: 12px 24px; font-size: 15px; }
+
+/* FORMS */
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: 13.5px;
+  font-family: var(--font-body); outline: none;
+  transition: border-color .15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 90px; }
+.form-select option { background: var(--surface2); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border2); }
+th { padding: 10px 14px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-family: var(--font-head); font-weight: 600; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+tbody tr:hover { background: rgba(0,194,255,.03); }
+td { padding: 12px 14px; font-size: 13.5px; color: var(--text2); }
+td strong { color: var(--text); }
+
+/* BADGES */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+}
+.badge-success { background: rgba(0,230,138,.15); color: var(--success); }
+.badge-danger   { background: rgba(255,77,109,.15); color: var(--danger); }
+.badge-warning  { background: rgba(255,184,48,.15); color: var(--warning); }
+.badge-info     { background: rgba(0,194,255,.15);  color: var(--accent); }
+.badge-purple   { background: rgba(155,111,255,.15);color: var(--purple); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(4,8,15,.8); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-lg); width: 100%; max-width: 580px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: modal-in .2s ease;
+}
+@keyframes modal-in { from { opacity:0; transform: scale(.96) translateY(12px); } to { opacity:1; transform: none; } }
+.modal-header { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 10px; }
+
+/* CHAT */
+.chat-wrap { display: flex; height: calc(100vh - var(--topbar-h) - 56px); }
+.chat-list { width: 280px; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+.chat-list-item { padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background .15s; }
+.chat-list-item:hover, .chat-list-item.active { background: rgba(0,194,255,.06); }
+.chat-messages { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.msg-bubble { max-width: 65%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; }
+.msg-bubble.sent { align-self: flex-end; background: var(--accent); color: #04080f; border-bottom-right-radius: 4px; }
+.msg-bubble.recv { align-self: flex-start; background: var(--surface2); color: var(--text); border-bottom-left-radius: 4px; }
+.msg-time { font-size: 10px; opacity: .6; margin-top: 3px; }
+.chat-input-row { padding: 14px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-end; }
+.chat-input-row textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-family: var(--font-body); font-size: 13.5px; resize: none; outline: none; max-height: 120px; }
+.chat-input-row textarea:focus { border-color: var(--accent); }
+
+/* EMERGENCY */
+.emergency-banner {
+  background: linear-gradient(90deg, rgba(255,77,109,.15), rgba(255,77,109,.05));
+  border: 1px solid rgba(255,77,109,.3);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px;
+  animation: pulse-red 2s infinite;
+}
+@keyframes pulse-red { 0%,100%{ border-color: rgba(255,77,109,.3); } 50%{ border-color: rgba(255,77,109,.8); } }
+
+/* NOTIFICATION PANEL */
+.notif-panel {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  width: 340px; background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+  animation: modal-in .15s ease;
+}
+.notif-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-family: var(--font-head); font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.notif-item { padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s; }
+.notif-item:hover { background: var(--surface2); }
+.notif-item.unread { border-left: 2px solid var(--accent); }
+.notif-title { font-size: 13px; font-weight: 500; }
+.notif-msg { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.notif-time { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ONLINE DOT */
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+.offline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+
+/* UTILS */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mb-4 { margin-bottom: 16px; }
+.mb-6 { margin-bottom: 24px; }
+.text-muted { color: var(--muted); }
+.text-sm { font-size: 12px; }
+.text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+.font-bold { font-weight: 700; }
+.rounded { border-radius: var(--radius); }
+.w-full { width: 100%; }
+
+/* AUTH PAGES */
+.auth-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); padding: 24px;
+}
+.auth-page::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 20% 30%, rgba(0,194,255,.07) 0%, transparent 50%),
+              radial-gradient(circle at 80% 70%, rgba(0,255,157,.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 40px;
+  width: 100%; max-width: 460px;
+  box-shadow: var(--shadow-lg);
+  position: relative; z-index: 1;
+}
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.auth-title { font-family: var(--font-head); font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+.auth-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 28px; }
+.auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+.auth-footer a { color: var(--accent); cursor: pointer; }
+
+/* PAGE HEADER */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.page-header h1 { font-size: 22px; font-weight: 800; }
+.page-header p { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+/* SEARCH */
+.search-box {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 14px;
+}
+.search-box input { background: none; border: none; color: var(--text); font-size: 13.5px; font-family: var(--font-body); outline: none; flex: 1; min-width: 0; }
+.search-box input::placeholder { color: var(--muted); }
+
+/* LOADER */
+.loader { display: flex; align-items: center; justify-content: center; padding: 40px; }
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 16px; color: var(--text2); margin-bottom: 6px; }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+  .page-body { padding: 16px; }
+}
+
+
+
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<React.StrictMode><App /></React.StrictMode>);
+
+
+
+
+
+
+
+
+
+const jwt = require('jsonwebtoken');
+const { Auth, User } = require('../models');
+
+const protect = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vitalbyte_secret');
+    const auth = await Auth.findById(decoded.authId);
+    if (!auth || !auth.user_active) return res.status(401).json({ message: 'Unauthorized' });
+
+    const user = await User.findById(auth.user_id).populate('hospital');
+    req.user = user;
+    req.auth = auth;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+const restrictTo = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role))
+    return res.status(403).json({ message: 'Access denied' });
+  next();
+};
+
+module.exports = { protect, restrictTo };
+
+
+
+
+
+
+
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+// ─── User Model ───────────────────────────────────────────────────────────────
+const userSchema = new mongoose.Schema({
+  name:            { type: String, required: true, trim: true },
+  role:            { type: String, enum: ['patient', 'doctor', 'admin', 'lab_technician'], required: true },
+  age:             { type: Number },
+  gender:          { type: String, enum: ['male', 'female', 'other'] },
+  blood_group:     { type: String, enum: ['A+','A-','B+','B-','AB+','AB-','O+','O-'] },
+  phone:           { type: String },
+  email:           { type: String, required: true, unique: true, lowercase: true },
+  address:         { type: String },
+  aadhar_verified: { type: Boolean, default: false },
+  aadhar_number:   { type: String },
+  allergies:       [{ type: String }],
+  // Doctor-specific fields
+  specialization:  { type: String },
+  hospital:        { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital',required: false },
+  license_number:  { type: String },
+  registration_number: { type: String },
+  profile_picture: { type: String },
+  is_active:       { type: Boolean, default: true },
+}, { timestamps: true });
+
+// ─── Authentication Model ─────────────────────────────────────────────────────
+const authSchema = new mongoose.Schema({
+  user_id:            { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user_type:          { type: String, enum: ['patient', 'doctor', 'admin', 'lab_technician'], required: true },
+  user_email:         { type: String, required: true, unique: true, lowercase: true },
+  user_password:      { type: String, required: true },
+  user_active:        { type: Boolean, default: true },
+  user_verification_status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  last_login:         { type: Date },
+  otp:                { type: String },
+  otp_expires:        { type: Date },
+  refresh_token:      { type: String },
+}, { timestamps: true });
+
+authSchema.pre('save', async function(next) {
+  if (!this.isModified('user_password')) return next();
+  this.user_password = await bcrypt.hash(this.user_password, 12);
+  next();
+});
+
+authSchema.methods.comparePassword = async function(password) {
+  return bcrypt.compare(password, this.user_password);
+};
+
+// ─── Hospital Model ───────────────────────────────────────────────────────────
+const hospitalSchema = new mongoose.Schema({
+  name:    { type: String, required: true },
+  address: { type: String, required: true },
+  phone:   { type: String },
+  email:   { type: String },
+  type:    { type: String, enum: ['government', 'private', 'clinic'], default: 'private' },
+  is_active: { type: Boolean, default: true },
+}, { timestamps: true });
+
+// ─── Appointment Model ────────────────────────────────────────────────────────
+const appointmentSchema = new mongoose.Schema({
+  patient_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  doctor_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  date:       { type: Date, required: true },
+  time:       { type: String, required: true },
+  remarks:    { type: String },
+  status:     { type: String, enum: ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'], default: 'pending' },
+  type:       { type: String, enum: ['in-person', 'online'], default: 'in-person' },
+  notes:      { type: String },
+  room_id:    { type: String }, // for socket room
+}, { timestamps: true });
+
+// ─── Medical Record Model ─────────────────────────────────────────────────────
+const medicalRecordSchema = new mongoose.Schema({
+  patient_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  doctor_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  date:          { type: Date, default: Date.now },
+  prescriptions: [{
+    medicine:  String,
+    dosage:    String,
+    frequency: String,
+    duration:  String,
+    notes:     String,
+  }],
+  diagnosis:     { type: String },
+  symptoms:      [{ type: String }],
+  vital_signs: {
+    blood_pressure: String,
+    pulse:          String,
+    temperature:    String,
+    weight:         String,
+    height:         String,
+    oxygen_level:   String,
+  },
+  other_records: { type: String },
+  follow_up_date: { type: Date },
+  is_emergency:  { type: Boolean, default: false },
+}, { timestamps: true });
+
+// ─── Lab Report Model ─────────────────────────────────────────────────────────
+const labReportSchema = new mongoose.Schema({
+  patient_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  referred_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  record_id:   { type: String, unique: true },
+  test_name:   { type: String },
+  test_type:   { type: String },
+  upload_files: [{ type: String }],
+  results:     { type: String },
+  status:      { type: String, enum: ['pending', 'processing', 'completed'], default: 'pending' },
+  uploaded_at: { type: Date, default: Date.now },
+  notes:       { type: String },
+}, { timestamps: true });
+
+// ─── Message Model (for real-time chat) ──────────────────────────────────────
+const messageSchema = new mongoose.Schema({
+  room_id:     { type: String, required: true },
+  sender_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sender_name: { type: String },
+  sender_role: { type: String },
+  message:     { type: String, required: true },
+  read:        { type: Boolean, default: false },
+}, { timestamps: true });
+
+// ─── Notification Model ───────────────────────────────────────────────────────
+const notificationSchema = new mongoose.Schema({
+  user_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title:    { type: String, required: true },
+  message:  { type: String, required: true },
+  type:     { type: String, enum: ['appointment', 'lab_report', 'emergency', 'general', 'message'], default: 'general' },
+  read:     { type: Boolean, default: false },
+  link:     { type: String },
+}, { timestamps: true });
+
+module.exports = {
+  User:          mongoose.model('User',          userSchema),
+  Auth:          mongoose.model('Auth',          authSchema),
+  Hospital:      mongoose.model('Hospital',      hospitalSchema),
+  Appointment:   mongoose.model('Appointment',   appointmentSchema),
+  MedicalRecord: mongoose.model('MedicalRecord', medicalRecordSchema),
+  LabReport:     mongoose.model('LabReport',     labReportSchema),
+  Message:       mongoose.model('Message',       messageSchema),
+  Notification:  mongoose.model('Notification',  notificationSchema),
+};
+
+
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const { Appointment, Notification, User } = require('../models');
+const { protect, restrictTo } = require('../middleware/auth');
+const { v4: uuidv4 } = require('uuid');
+
+// GET /api/appointments - list based on role
+router.get('/', protect, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role === 'patient') filter.patient_id = req.user._id;
+    if (req.user.role === 'doctor')  filter.doctor_id  = req.user._id;
+
+    const appointments = await Appointment.find(filter)
+      .populate('patient_id', 'name age gender phone')
+      .populate('doctor_id',  'name specialization')
+      .sort({ date: -1 });
+    res.json(appointments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/appointments - book new appointment
+router.post('/', protect, async (req, res) => {
+  try {
+    const { doctor_id, date, time, remarks, type } = req.body;
+    const room_id = `appointment_${uuidv4()}`;
+
+    const appointment = await Appointment.create({
+      patient_id: req.user._id,
+      doctor_id,
+      date,
+      time,
+      remarks,
+      type: type || 'in-person',
+      room_id,
+    });
+
+    const populated = await appointment.populate([
+      { path: 'patient_id', select: 'name age gender phone' },
+      { path: 'doctor_id',  select: 'name specialization' },
+    ]);
+
+    // Create notifications
+    await Notification.create([
+      {
+        user_id: doctor_id,
+        title: 'New Appointment Request',
+        message: `${req.user.name} has booked an appointment for ${new Date(date).toDateString()} at ${time}`,
+        type: 'appointment',
+      },
+      {
+        user_id: req.user._id,
+        title: 'Appointment Booked',
+        message: `Your appointment with Dr. ${populated.doctor_id.name} is confirmed for ${new Date(date).toDateString()} at ${time}`,
+        type: 'appointment',
+      },
+    ]);
+
+    // Emit real-time event
+    const io = req.app.get('io');
+    io.emit('appointment_update', populated);
+
+    res.status(201).json(populated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/appointments/:id/status - update status
+router.put('/:id/status', protect, async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const appointment = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      { status, notes },
+      { new: true }
+    ).populate('patient_id', 'name phone').populate('doctor_id', 'name specialization');
+
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+    await Notification.create({
+      user_id: appointment.patient_id._id,
+      title: `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      message: `Your appointment with Dr. ${appointment.doctor_id.name} has been ${status}.`,
+      type: 'appointment',
+    });
+
+    const io = req.app.get('io');
+    io.emit('appointment_update', appointment);
+
+    res.json(appointment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/appointments/:id
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    await Appointment.findByIdAndDelete(req.params.id);
+    const io = req.app.get('io');
+    io.emit('appointment_deleted', { id: req.params.id });
+    res.json({ message: 'Appointment cancelled' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+const { User, Auth, Notification } = require('../models');
+const { protect } = require('../middleware/auth');
+
+const signToken = (authId, userId, role) =>
+  jwt.sign({ authId, userId, role }, process.env.JWT_SECRET || 'vitalbyte_secret', {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  });
+
+// POST /api/auth/register
+router.post('/register', async (req, res) => {
+  try {
+    const {
+      name, email, password, role, age, gender, blood_group, phone, address,
+      specialization, license_number, registration_number, hospital,
+    } = req.body;
+
+    const existing = await Auth.findOne({ user_email: email.toLowerCase() });
+    if (existing) return res.status(400).json({ message: 'Email already registered' });
+
+    const cleanedHospital = hospital === "" ? undefined : hospital;
+    const user = await User.create({
+      name, email, role, age, gender, blood_group, phone, address,
+      specialization, license_number, registration_number,
+      hospital: cleanedHospital, // Use cleaned value
+    });
+
+    const auth = await Auth.create({
+      user_id: user._id,
+      user_type: role,
+      user_email: email.toLowerCase(),
+      user_password: password,
+      user_verification_status: role === 'patient' ? 'verified' : 'pending',
+    });
+
+    await Notification.create({
+      user_id: user._id,
+      title: 'Welcome to VitalByte!',
+      message: `Your account has been created successfully.${role !== 'patient' ? ' Awaiting admin verification.' : ''}`,
+      type: 'general',
+    });
+
+    const token = signToken(auth._id, user._id, role);
+    res.status(201).json({ token, user: { ...user.toObject(), authStatus: auth.user_verification_status } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const auth = await Auth.findOne({ user_email: email.toLowerCase() });
+    if (!auth) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const valid = await auth.comparePassword(password);
+    if (!valid) return res.status(401).json({ message: 'Invalid credentials' });
+
+    if (!auth.user_active) return res.status(403).json({ message: 'Account deactivated' });
+
+    auth.last_login = new Date();
+    await auth.save();
+
+    const user = await User.findById(auth.user_id).populate('hospital');
+    const token = signToken(auth._id, user._id, user.role);
+
+    res.json({ token, user: { ...user.toObject(), authStatus: auth.user_verification_status } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/auth/me
+router.get('/me', protect, async (req, res) => {
+  const user = await User.findById(req.user._id).populate('hospital');
+  res.json({ user: { ...user.toObject(), authStatus: req.auth.user_verification_status } });
+});
+
+// PUT /api/auth/change-password
+router.put('/change-password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const valid = await req.auth.comparePassword(currentPassword);
+    if (!valid) return res.status(400).json({ message: 'Current password is incorrect' });
+    req.auth.user_password = newPassword;
+    await req.auth.save();
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const { User, Appointment, MedicalRecord, LabReport, Hospital } = require('../models');
+const { protect, restrictTo } = require('../middleware/auth');
+
+router.get('/stats', protect, async (req, res) => {
+  try {
+    const role = req.user.role;
+    const userId = req.user._id;
+    let stats = {};
+
+    if (role === 'admin') {
+      const [patients, doctors, appointments, records, labs, hospitals] = await Promise.all([
+        User.countDocuments({ role: 'patient' }),
+        User.countDocuments({ role: 'doctor' }),
+        Appointment.countDocuments(),
+        MedicalRecord.countDocuments(),
+        LabReport.countDocuments(),
+        Hospital.countDocuments({ is_active: true }),
+      ]);
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayAppts = await Appointment.countDocuments({ createdAt: { $gte: todayStart } });
+      const pendingAppts = await Appointment.countDocuments({ status: 'pending' });
+      stats = { patients, doctors, appointments, records, labs, hospitals, todayAppts, pendingAppts };
+    } else if (role === 'doctor') {
+      const [myPatients, myAppointments, myRecords, pendingAppts, todayAppts] = await Promise.all([
+        Appointment.distinct('patient_id', { doctor_id: userId }),
+        Appointment.countDocuments({ doctor_id: userId }),
+        MedicalRecord.countDocuments({ doctor_id: userId }),
+        Appointment.countDocuments({ doctor_id: userId, status: 'pending' }),
+        Appointment.countDocuments({ doctor_id: userId, date: { $gte: new Date().setHours(0,0,0,0) } }),
+      ]);
+      stats = { myPatients: myPatients.length, myAppointments, myRecords, pendingAppts, todayAppts };
+    } else if (role === 'patient') {
+      const [appointments, records, labs] = await Promise.all([
+        Appointment.countDocuments({ patient_id: userId }),
+        MedicalRecord.countDocuments({ patient_id: userId }),
+        LabReport.countDocuments({ patient_id: userId }),
+      ]);
+      const upcoming = await Appointment.countDocuments({
+        patient_id: userId, date: { $gte: new Date() }, status: { $in: ['pending','confirmed'] }
+      });
+      stats = { appointments, records, labs, upcoming };
+    }
+
+    // Recent appointments (all roles)
+    const recentFilter = {};
+    if (role === 'patient') recentFilter.patient_id = userId;
+    if (role === 'doctor')  recentFilter.doctor_id  = userId;
+
+    const recentAppointments = await Appointment.find(recentFilter)
+      .populate('patient_id','name age')
+      .populate('doctor_id','name specialization')
+      .sort({ createdAt: -1 }).limit(5);
+
+    res.json({ stats, recentAppointments });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const { User } = require('../models');
+const { protect } = require('../middleware/auth');
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const doctors = await User.find({ role: 'doctor' }).populate('hospital').select('-__v');
+    res.json(doctors);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const doctor = await User.findById(req.params.id).populate('hospital');
+    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+    res.json(doctor);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = router;
+
+
+
+
+
+
+
+// hospitals.js
+const express = require('express');
+const router = express.Router();
+const { Hospital } = require('../models');
+const { protect, restrictTo } = require('../middleware/auth');
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const hospitals = await Hospital.find({ is_active: true });
+    res.json(hospitals);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const hospital = await Hospital.create(req.body);
+    res.status(201).json(hospital);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.put('/:id', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const hospital = await Hospital.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(hospital);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.delete('/:id', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    await Hospital.findByIdAndUpdate(req.params.id, { is_active: false });
+    res.json({ message: 'Hospital deactivated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = router;
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { LabReport, Notification } = require('../models');
+const { protect } = require('../middleware/auth');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads/lab-reports')),
+  filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role === 'patient') filter.patient_id = req.user._id;
+    const reports = await LabReport.find(filter)
+      .populate('patient_id', 'name age')
+      .populate('referred_by', 'name specialization')
+      .sort({ uploaded_at: -1 });
+    res.json(reports);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/', protect, upload.array('files', 5), async (req, res) => {
+  try {
+    const files = req.files?.map(f => `/uploads/lab-reports/${f.filename}`) || [];
+    const report = await LabReport.create({
+      ...req.body,
+      record_id: `LR-${uuidv4().slice(0, 8).toUpperCase()}`,
+      upload_files: files,
+      uploaded_at: new Date(),
+    });
+
+    const io = req.app.get('io');
+    io.emit('lab_report_update', report);
+
+    if (req.body.referred_by) {
+      await Notification.create({
+        user_id: req.body.referred_by,
+        title: 'Lab Report Uploaded',
+        message: `A new lab report has been uploaded for patient.`,
+        type: 'lab_report',
+      });
+    }
+    res.status(201).json(report);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.put('/:id/status', protect, async (req, res) => {
+  try {
+    const report = await LabReport.findByIdAndUpdate(
+      req.params.id, { status: req.body.status, results: req.body.results }, { new: true }
+    );
+    const io = req.app.get('io');
+    io.emit('lab_report_update', report);
+    res.json(report);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = router;
+
+
+
+
+
+
+
+
+// ─── medicalRecords.js ────────────────────────────────────────────────────────
+const express = require('express');
+const router = express.Router();
+const { MedicalRecord, Notification } = require('../models');
+const { protect } = require('../middleware/auth');
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role === 'patient') filter.patient_id = req.user._id;
+    if (req.user.role === 'doctor')  filter.doctor_id  = req.user._id;
+    const records = await MedicalRecord.find(filter)
+      .populate('patient_id', 'name age gender blood_group')
+      .populate('doctor_id',  'name specialization')
+      .sort({ createdAt: -1 });
+    res.json(records);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/', protect, async (req, res) => {
+  try {
+    const record = await MedicalRecord.create({ ...req.body, doctor_id: req.user._id });
+    const populated = await record.populate([
+      { path: 'patient_id', select: 'name age gender' },
+      { path: 'doctor_id',  select: 'name specialization' },
+    ]);
+    await Notification.create({
+      user_id: req.body.patient_id,
+      title: 'New Medical Record Added',
+      message: `Dr. ${req.user.name} has added a new medical record for you.`,
+      type: 'general',
+    });
+    const io = req.app.get('io');
+    io.emit('record_added', populated);
+    res.status(201).json(populated);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const record = await MedicalRecord.findById(req.params.id)
+      .populate('patient_id').populate('doctor_id');
+    if (!record) return res.status(404).json({ message: 'Not found' });
+    res.json(record);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = router;
+
+
+
+
+
+
+
+
+
+// patients.js
+const express = require('express');
+const router = express.Router();
+const { User } = require('../models');
+const { protect } = require('../middleware/auth');
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const patients = await User.find({ role: 'patient' }).select('-__v');
+    res.json(patients);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const patient = await User.findById(req.params.id);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+    res.json(patient);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = router;
+
+
+
+
+
+
+
+
+// ── users.js ──────────────────────────────────────────────────────────────────
+const express = require('express');
+const r1 = express.Router();
+const { User, Auth, Notification } = require('../models');
+const { protect, restrictTo } = require('../middleware/auth');
+
+r1.get('/', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const users = await User.find().populate('hospital');
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+r1.get('/notifications', protect, async (req, res) => {
+  try {
+    const notifs = await Notification.find({ user_id: req.user._id }).sort({ createdAt: -1 }).limit(20);
+    res.json(notifs);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+r1.put('/notifications/:id/read', protect, async (req, res) => {
+  await Notification.findByIdAndUpdate(req.params.id, { read: true });
+  res.json({ success: true });
+});
+
+r1.put('/:id', protect, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('hospital');
+    res.json(user);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+r1.put('/:id/verify', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    const auth = await Auth.findOneAndUpdate(
+      { user_id: req.params.id }, { user_verification_status: status }, { new: true }
+    );
+    await Notification.create({
+      user_id: req.params.id,
+      title: `Account ${status === 'verified' ? 'Verified' : 'Rejected'}`,
+      message: `Your account has been ${status} by the admin.`,
+      type: 'general',
+    });
+    res.json(auth);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+module.exports = r1;
+
+
+
+
+
+
+
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+
+// ─── Socket.io Setup ─────────────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+// Make io accessible to routes
+app.set('io', io);
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ─── MongoDB Connection ───────────────────────────────────────────────────────
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/vitalbyte')
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB error:', err));
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+app.use('/api/auth',         require('./routes/auth'));
+app.use('/api/users',        require('./routes/users'));
+app.use('/api/patients',     require('./routes/patients'));
+app.use('/api/doctors',      require('./routes/doctors'));
+app.use('/api/appointments', require('./routes/appointments'));
+app.use('/api/medical-records', require('./routes/medicalRecords'));
+app.use('/api/lab-reports',  require('./routes/labReports'));
+app.use('/api/hospitals',    require('./routes/hospitals'));
+app.use('/api/dashboard',    require('./routes/dashboard'));
+
+// Health check
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+
+// ─── Socket.io Real-Time Events ───────────────────────────────────────────────
+const connectedUsers = new Map(); // userId -> socketId
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+
+  // Register user with their userId
+  socket.on('register', (userId) => {
+    connectedUsers.set(userId, socket.id);
+    socket.userId = userId;
+    io.emit('online_users', Array.from(connectedUsers.keys()));
+    console.log(`👤 User ${userId} registered on socket ${socket.id}`);
+  });
+
+  // Join a room (e.g. doctor-patient chat)
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    console.log(`🚪 Socket ${socket.id} joined room ${roomId}`);
+  });
+
+  // Real-time appointment notification
+  socket.on('appointment_request', (data) => {
+    const doctorSocketId = connectedUsers.get(data.doctorId);
+    if (doctorSocketId) {
+      io.to(doctorSocketId).emit('new_appointment', {
+        ...data,
+        timestamp: new Date(),
+      });
+    }
+    // Broadcast to all admins
+    socket.broadcast.emit('appointment_update', data);
+  });
+
+  // Appointment status update (doctor accepts/rejects)
+  socket.on('appointment_status_update', (data) => {
+    const patientSocketId = connectedUsers.get(data.patientId);
+    if (patientSocketId) {
+      io.to(patientSocketId).emit('appointment_status_changed', {
+        ...data,
+        timestamp: new Date(),
+      });
+    }
+    io.emit('dashboard_refresh', { type: 'appointment' });
+  });
+
+  // Emergency alert
+  socket.on('emergency_alert', (data) => {
+    console.log(`🚨 Emergency from ${data.patientId}`);
+    // Broadcast emergency to ALL connected users (doctors/admins)
+    io.emit('emergency_broadcast', {
+      ...data,
+      timestamp: new Date(),
+      alertId: require('uuid').v4(),
+    });
+  });
+
+  // Doctor-Patient real-time message
+  socket.on('send_message', (data) => {
+    const { roomId, message, senderId, senderName, senderRole } = data;
+    io.to(roomId).emit('receive_message', {
+      message,
+      senderId,
+      senderName,
+      senderRole,
+      timestamp: new Date(),
+    });
+  });
+
+  // Lab report uploaded notification
+  socket.on('lab_report_uploaded', (data) => {
+    const doctorSocketId = connectedUsers.get(data.doctorId);
+    if (doctorSocketId) {
+      io.to(doctorSocketId).emit('new_lab_report', {
+        ...data,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Typing indicator
+  socket.on('typing', ({ roomId, senderName }) => {
+    socket.to(roomId).emit('user_typing', { senderName });
+  });
+
+  socket.on('stop_typing', ({ roomId }) => {
+    socket.to(roomId).emit('user_stop_typing');
+  });
+
+  // Disconnect
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+      io.emit('online_users', Array.from(connectedUsers.keys()));
+    }
+    console.log(`🔴 Socket disconnected: ${socket.id}`);
+  });
+});
+
+// Export io for use in controllers
+module.exports.io = io;
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 VitalByte Server running on http://localhost:${PORT}`);
+  console.log(`🔌 Socket.io ready for real-time connections`);
+});
+
+
+
+
+
+
+
+
+
+/**
+ * VitalByte - Database Seeder
+ * Run: node seed.js
+ * Creates demo admin, doctor, patient + sample hospital
+ */
+
+require('dotenv').config();
+const mongoose = require('mongoose');
+const bcrypt   = require('bcryptjs');
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/vitalbyte';
+
+// ── Inline schemas (no circular deps) ────────────────────────────────────────
+const hospitalSchema = new mongoose.Schema({ name: String, address: String, phone: String, type: { type: String, default: 'private' }, is_active: { type: Boolean, default: true } }, { timestamps: true });
+const userSchema     = new mongoose.Schema({ name: String, role: String, age: Number, gender: String, blood_group: String, phone: String, email: String, address: String, aadhar_verified: Boolean, allergies: [String], specialization: String, hospital: { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' }, license_number: String, registration_number: String, is_active: { type: Boolean, default: true } }, { timestamps: true });
+const authSchema     = new mongoose.Schema({ user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, user_type: String, user_email: String, user_password: String, user_active: { type: Boolean, default: true }, user_verification_status: { type: String, default: 'verified' } }, { timestamps: true });
+const notifSchema    = new mongoose.Schema({ user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, title: String, message: String, type: String, read: { type: Boolean, default: false } }, { timestamps: true });
+const apptSchema     = new mongoose.Schema({ patient_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, date: Date, time: String, remarks: String, status: { type: String, default: 'confirmed' }, type: { type: String, default: 'in-person' } }, { timestamps: true });
+const recordSchema   = new mongoose.Schema({ patient_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, date: Date, diagnosis: String, symptoms: [String], prescriptions: [{ medicine: String, dosage: String, frequency: String, duration: String }], vital_signs: { blood_pressure: String, pulse: String, temperature: String, oxygen_level: String }, other_records: String }, { timestamps: true });
+
+const Hospital      = mongoose.model('Hospital',      hospitalSchema);
+const User          = mongoose.model('User',          userSchema);
+const Auth          = mongoose.model('Auth',          authSchema);
+const Notification  = mongoose.model('Notification',  notifSchema);
+const Appointment   = mongoose.model('Appointment',   apptSchema);
+const MedicalRecord = mongoose.model('MedicalRecord', recordSchema);
+
+async function seed() {
+  console.log('\n🌱  VitalByte Database Seeder');
+  console.log('================================\n');
+
+  await mongoose.connect(MONGO_URI);
+  console.log('✅  Connected to MongoDB\n');
+
+  // Clear existing data
+  await Promise.all([Hospital, User, Auth, Notification, Appointment, MedicalRecord].map(M => M.deleteMany({})));
+  console.log('🧹  Cleared existing data\n');
+
+  // Create hospitals
+  const h1 = await Hospital.create({ name: 'City General Hospital',     address: '12 MG Road, Kolkata 700001', phone: '033-22001234', type: 'government' });
+  const h2 = await Hospital.create({ name: 'Apollo Multispeciality',    address: '58 Canal Circular Road, Kolkata', phone: '033-23456789', type: 'private' });
+  const h3 = await Hospital.create({ name: 'Sunrise Clinic & Diagnostics', address: '5 Park Street, Kolkata 700016', phone: '033-22224444', type: 'clinic' });
+  console.log('🏨  Created 3 hospitals');
+
+  const hash = async (pw) => bcrypt.hash(pw, 12);
+
+  // Create Admin
+  const admin = await User.create({ name: 'Admin User', role: 'admin', email: 'admin@vitalbyte.com', phone: '9800000001', gender: 'male', age: 35, address: 'Kolkata, WB', aadhar_verified: true });
+  await Auth.create({ user_id: admin._id, user_type: 'admin', user_email: 'admin@vitalbyte.com', user_password: await hash('admin123'), user_verification_status: 'verified' });
+
+  // Create Doctors
+  const doc1 = await User.create({ name: 'Rajesh Sharma', role: 'doctor', email: 'doctor@vitalbyte.com', phone: '9800000002', gender: 'male', age: 45, blood_group: 'O+', address: 'Salt Lake, Kolkata', specialization: 'Cardiology', hospital: h1._id, license_number: 'KOL-MCI-12345', registration_number: 'WB-DOC-001', aadhar_verified: true });
+  await Auth.create({ user_id: doc1._id, user_type: 'doctor', user_email: 'doctor@vitalbyte.com', user_password: await hash('doctor123'), user_verification_status: 'verified' });
+
+  const doc2 = await User.create({ name: 'Priya Banerjee', role: 'doctor', email: 'priya@vitalbyte.com', phone: '9800000003', gender: 'female', age: 38, blood_group: 'A+', address: 'New Town, Kolkata', specialization: 'Neurology', hospital: h2._id, license_number: 'KOL-MCI-67890', registration_number: 'WB-DOC-002', aadhar_verified: true });
+  await Auth.create({ user_id: doc2._id, user_type: 'doctor', user_email: 'priya@vitalbyte.com', user_password: await hash('doctor456'), user_verification_status: 'verified' });
+
+  const doc3 = await User.create({ name: 'Amit Kumar', role: 'doctor', email: 'amit@vitalbyte.com', phone: '9800000004', gender: 'male', age: 52, blood_group: 'B+', address: 'Howrah, WB', specialization: 'Orthopedics', hospital: h3._id, license_number: 'KOL-MCI-11111', registration_number: 'WB-DOC-003', aadhar_verified: true });
+  await Auth.create({ user_id: doc3._id, user_type: 'doctor', user_email: 'amit@vitalbyte.com', user_password: await hash('doctor789'), user_verification_status: 'verified' });
+
+  console.log('👨‍⚕️  Created 3 doctors');
+
+  // Create Patients
+  const pat1 = await User.create({ name: 'Sanjay Gupta', role: 'patient', email: 'patient@vitalbyte.com', phone: '9800001001', gender: 'male', age: 29, blood_group: 'B+', address: 'Park Street, Kolkata', allergies: ['Penicillin'], aadhar_verified: true });
+  await Auth.create({ user_id: pat1._id, user_type: 'patient', user_email: 'patient@vitalbyte.com', user_password: await hash('patient123'), user_verification_status: 'verified' });
+
+  const pat2 = await User.create({ name: 'Anita Roy', role: 'patient', email: 'anita@vitalbyte.com', phone: '9800001002', gender: 'female', age: 34, blood_group: 'A-', address: 'Behala, Kolkata', allergies: ['Peanuts', 'Dust'], aadhar_verified: true });
+  await Auth.create({ user_id: pat2._id, user_type: 'patient', user_email: 'anita@vitalbyte.com', user_password: await hash('patient456'), user_verification_status: 'verified' });
+
+  const pat3 = await User.create({ name: 'Ravi Singh', role: 'patient', email: 'ravi@vitalbyte.com', phone: '9800001003', gender: 'male', age: 55, blood_group: 'AB+', address: 'Dum Dum, Kolkata', allergies: [], aadhar_verified: false });
+  await Auth.create({ user_id: pat3._id, user_type: 'patient', user_email: 'ravi@vitalbyte.com', user_password: await hash('patient789'), user_verification_status: 'verified' });
+
+  console.log('🧑‍⚕️  Created 3 patients');
+
+  // Create sample appointments
+  const today   = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+
+  await Appointment.insertMany([
+    { patient_id: pat1._id, doctor_id: doc1._id, date: tomorrow,   time: '10:00 AM', remarks: 'Chest pain and shortness of breath', status: 'confirmed', type: 'in-person' },
+    { patient_id: pat1._id, doctor_id: doc2._id, date: yesterday,  time: '2:30 PM',  remarks: 'Headache for 3 days', status: 'completed', type: 'in-person' },
+    { patient_id: pat2._id, doctor_id: doc1._id, date: tomorrow,   time: '11:30 AM', remarks: 'Regular cardiac checkup', status: 'pending',   type: 'online' },
+    { patient_id: pat3._id, doctor_id: doc3._id, date: today,      time: '4:00 PM',  remarks: 'Knee pain after fall', status: 'confirmed', type: 'in-person' },
+    { patient_id: pat2._id, doctor_id: doc3._id, date: yesterday,  time: '9:00 AM',  remarks: 'Back pain follow-up', status: 'completed', type: 'in-person' },
+  ]);
+  console.log('📅  Created 5 appointments');
+
+  // Create sample medical records
+  await MedicalRecord.insertMany([
+    {
+      patient_id: pat1._id, doctor_id: doc2._id,
+      date: yesterday,
+      diagnosis: 'Tension Headache',
+      symptoms: ['Headache', 'Neck stiffness', 'Light sensitivity'],
+      vital_signs: { blood_pressure: '120/80', pulse: '72 bpm', temperature: '98.6°F', oxygen_level: '98%' },
+      prescriptions: [
+        { medicine: 'Ibuprofen 400mg', dosage: '1 tablet', frequency: '3x daily', duration: '5 days' },
+        { medicine: 'Paracetamol 500mg', dosage: '2 tablets', frequency: 'As needed', duration: '7 days' },
+      ],
+      other_records: 'Patient advised to reduce screen time and take adequate rest.',
+    },
+    {
+      patient_id: pat3._id, doctor_id: doc3._id,
+      date: today,
+      diagnosis: 'Knee Ligament Sprain',
+      symptoms: ['Knee pain', 'Swelling', 'Limited mobility'],
+      vital_signs: { blood_pressure: '130/85', pulse: '78 bpm', temperature: '98.4°F', oxygen_level: '97%' },
+      prescriptions: [
+        { medicine: 'Diclofenac Gel', dosage: 'Apply topically', frequency: '2x daily', duration: '2 weeks' },
+        { medicine: 'Calcium + D3', dosage: '1 tablet', frequency: 'Once daily', duration: '1 month' },
+      ],
+      other_records: 'X-ray shows no fracture. Physiotherapy recommended.',
+    },
+    {
+      patient_id: pat2._id, doctor_id: doc1._id,
+      date: yesterday,
+      diagnosis: 'Hypertension - Stage 1',
+      symptoms: ['High BP', 'Occasional dizziness', 'Fatigue'],
+      vital_signs: { blood_pressure: '145/95', pulse: '82 bpm', temperature: '98.7°F', oxygen_level: '99%' },
+      prescriptions: [
+        { medicine: 'Amlodipine 5mg', dosage: '1 tablet', frequency: 'Once daily', duration: '30 days' },
+      ],
+      other_records: 'Advised low-sodium diet, regular exercise, follow-up in 2 weeks.',
+    },
+  ]);
+  console.log('📋  Created 3 medical records');
+
+  // Welcome notifications
+  const allUsers = [admin, doc1, doc2, doc3, pat1, pat2, pat3];
+  await Notification.insertMany(allUsers.map(u => ({
+    user_id: u._id, title: 'Welcome to VitalByte! 💊',
+    message: 'Your account is ready. Explore your dashboard to get started.',
+    type: 'general',
+  })));
+  console.log('🔔  Created welcome notifications\n');
+
+  console.log('================================');
+  console.log('✅  Database seeded successfully!\n');
+  console.log('🔑  DEMO LOGIN CREDENTIALS:');
+  console.log('--------------------------------');
+  console.log('  Admin   : admin@vitalbyte.com   / admin123');
+  console.log('  Doctor  : doctor@vitalbyte.com  / doctor123');
+  console.log('  Doctor2 : priya@vitalbyte.com   / doctor456');
+  console.log('  Doctor3 : amit@vitalbyte.com    / doctor789');
+  console.log('  Patient : patient@vitalbyte.com / patient123');
+  console.log('  Patient2: anita@vitalbyte.com   / patient456');
+  console.log('  Patient3: ravi@vitalbyte.com    / patient789');
+  console.log('================================\n');
+
+  await mongoose.disconnect();
+  process.exit(0);
+}
+
+seed().catch(err => {
+  console.error('❌ Seed failed:', err.message);
+  process.exit(1);
+});
