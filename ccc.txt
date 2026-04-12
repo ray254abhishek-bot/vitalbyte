@@ -1,8 +1,213 @@
+
+
+//components/ComplaintModel.js//
+
+import React, { useState } from 'react';
+
+const CATEGORIES = [
+  { value: 'technical', label: '💻 Technical Issue', icon: '💻' },
+  { value: 'medical', label: '🏥 Medical Concern', icon: '🏥' },
+  { value: 'billing', label: '💰 Billing Issue', icon: '💰' },
+  { value: 'staff', label: '👥 Staff Behavior', icon: '👥' },
+  { value: 'suggestion', label: '💡 Suggestion', icon: '💡' },
+  { value: 'other', label: '📝 Other', icon: '📝' },
+];
+
+const PRIORITIES = [
+  { value: 'low', label: 'Low', color: 'badge-info' },
+  { value: 'medium', label: 'Medium', color: 'badge-warning' },
+  { value: 'high', label: 'High', color: 'badge-danger' },
+  { value: 'urgent', label: 'Urgent', color: 'badge-purple' },
+];
+
+export default function ComplaintModal({ onClose, onSubmit, api }) {
+  const [form, setForm] = useState({
+    subject: '',
+    description: '',
+    category: 'other',
+    priority: 'medium',
+    is_anonymous: false,
+  });
+  const [attachments, setAttachments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.subject.trim()) {
+      setError('Please enter a subject');
+      return;
+    }
+    if (!form.description.trim()) {
+      setError('Please describe your complaint');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const fd = new FormData();
+      fd.append('subject', form.subject);
+      fd.append('description', form.description);
+      fd.append('category', form.category);
+      fd.append('priority', form.priority);
+      fd.append('is_anonymous', form.is_anonymous);
+      attachments.forEach(f => fd.append('attachments', f));
+      
+      await api.post('/complaints', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setSuccess('Complaint submitted successfully!');
+      setTimeout(() => {
+        if (onSubmit) onSubmit();
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit complaint');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📝 File a Complaint</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        
+        <form onSubmit={submit}>
+          <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            {error && (
+              <div style={{ background: 'rgba(255,77,109,.12)', border: '1px solid rgba(255,77,109,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>
+                {error}
+              </div>
+            )}
+            
+            {success && (
+              <div style={{ background: 'rgba(0,230,138,.12)', border: '1px solid rgba(0,230,138,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--success)' }}>
+                {success}
+              </div>
+            )}
+            
+            <div className="form-group">
+              <label className="form-label">Subject *</label>
+              <input
+                className="form-input"
+                name="subject"
+                value={form.subject}
+                onChange={handleChange}
+                placeholder="Brief summary of your issue"
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    className={`btn btn-sm ${form.category === cat.value ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setForm(f => ({ ...f, category: cat.value }))}
+                  >
+                    {cat.icon} {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Priority</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {PRIORITIES.map(pri => (
+                  <button
+                    key={pri.value}
+                    type="button"
+                    className={`btn btn-sm ${form.priority === pri.value ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setForm(f => ({ ...f, priority: pri.value }))}
+                  >
+                    {pri.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Description *</label>
+              <textarea
+                className="form-textarea"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Please provide detailed information about your complaint..."
+                rows={5}
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Attachments (optional)</label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={e => setAttachments(Array.from(e.target.files))}
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }}
+              />
+              {attachments.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4 }}>
+                  {attachments.length} file(s) selected
+                </div>
+              )}
+            </div>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, marginTop: 8 }}>
+              <input
+                type="checkbox"
+                name="is_anonymous"
+                checked={form.is_anonymous}
+                onChange={handleChange}
+              />
+              Submit anonymously (your name will not be shared with other users)
+            </label>
+          </div>
+          
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Submitting...' : 'Submit Complaint'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+//components/Layout.js//
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { format } from 'date-fns';
+import ComplaintModal from './ComplaintModal';
 
 const NAV = {
   patient: [
@@ -13,8 +218,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Connect', items: [
-      { to: '/doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
-      { to: '/chat',    icon: '💬', label: 'Messages' },
+      { to: '/doctors',    icon: '👨‍⚕️', label: 'Find Doctors' },
+      { to: '/chat',       icon: '💬', label: 'Messages' },
+      { to: '/complaints', icon: '📝', label: 'Complaints' },
     ]},
   ],
   doctor: [
@@ -25,8 +231,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Manage', items: [
-      { to: '/patients', icon: '🏥', label: 'My Patients' },
-      { to: '/chat',     icon: '💬', label: 'Messages' },
+      { to: '/patients',   icon: '🏥', label: 'My Patients' },
+      { to: '/chat',       icon: '💬', label: 'Messages' },
+      { to: '/complaints', icon: '📝', label: 'Complaints' },
     ]},
   ],
   admin: [
@@ -35,10 +242,11 @@ const NAV = {
       { to: '/appointments', icon: '📅', label: 'Appointments' },
     ]},
     { section: 'Management', items: [
-      { to: '/admin/users', icon: '👥', label: 'All Users' },
-      { to: '/doctors',     icon: '👨‍⚕️', label: 'Doctors' },
-      { to: '/patients',    icon: '🏥', label: 'Patients' },
-      { to: '/hospitals',   icon: '🏨', label: 'Hospitals' },
+      { to: '/admin/users',  icon: '👥', label: 'All Users' },
+      { to: '/doctors',      icon: '👨‍⚕️', label: 'Doctors' },
+      { to: '/patients',     icon: '🏥', label: 'Patients' },
+      { to: '/hospitals',    icon: '🏨', label: 'Hospitals' },
+      { to: '/complaints',   icon: '📝', label: 'Complaints' },
     ]},
     { section: 'Records', items: [
       { to: '/medical-records', icon: '📋', label: 'Medical Records' },
@@ -48,13 +256,13 @@ const NAV = {
 };
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, api } = useAuth();
   const { notifications, emergencyAlert, clearEmergency } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifs, setShowNotifs]     = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
   const [apiNotifs,  setApiNotifs]      = useState([]);
-  const { api } = useAuth();
   const notifRef = useRef();
 
   const unread = [...apiNotifs, ...notifications].filter(n => !n.read).length;
@@ -78,11 +286,24 @@ export default function Layout() {
       '/medical-records': 'Medical Records', '/lab-reports': 'Lab Reports',
       '/doctors': 'Doctors', '/patients': 'Patients', '/hospitals': 'Hospitals',
       '/chat': 'Messages', '/profile': 'My Profile', '/admin/users': 'User Management',
+      '/complaints': 'Complaints & Feedback',
     };
     return map[location.pathname] || 'VitalByte';
   };
 
   const initials = user?.name?.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+  const handleComplaintSubmit = () => {
+    // Optional: Show a success toast or refresh something
+    console.log('Complaint submitted successfully');
+  };
+
+  const handleNotificationClick = (notif) => {
+    if (notif.link) {
+      navigate(notif.link);
+      setShowNotifs(false);
+    }
+  };
 
   return (
     <div className="app-layout">
@@ -142,6 +363,11 @@ export default function Layout() {
               <EmergencyBtn user={user} />
             )}
 
+            {/* Complaint Button */}
+            <div className="icon-btn" onClick={() => setShowComplaintModal(true)} title="File a complaint">
+              📝
+            </div>
+
             {/* Notifications */}
             <div style={{ position: 'relative' }} ref={notifRef}>
               <div className="icon-btn" onClick={() => setShowNotifs(s => !s)}>
@@ -153,6 +379,7 @@ export default function Layout() {
                   notifs={[...notifications, ...apiNotifs].slice(0, 15)}
                   onClose={() => setShowNotifs(false)}
                   api={api}
+                  navigate={navigate}
                 />
               )}
             </div>
@@ -186,6 +413,15 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* COMPLAINT MODAL */}
+      {showComplaintModal && (
+        <ComplaintModal
+          onClose={() => setShowComplaintModal(false)}
+          onSubmit={handleComplaintSubmit}
+          api={api}
+        />
+      )}
     </div>
   );
 }
@@ -220,10 +456,18 @@ function EmergencyBtn({ user }) {
   );
 }
 
-function NotifPanel({ notifs, onClose, api }) {
+function NotifPanel({ notifs, onClose, api, navigate }) {
   const markRead = async (id) => {
     await api.put(`/users/notifications/${id}/read`).catch(() => {});
   };
+  
+  const handleNotificationClick = (notif) => {
+    if (notif.link) {
+      navigate(notif.link);
+      onClose();
+    }
+  };
+  
   return (
     <div className="notif-panel">
       <div className="notif-header">
@@ -235,9 +479,17 @@ function NotifPanel({ notifs, onClose, api }) {
           No notifications
         </div>
       ) : notifs.map((n, i) => (
-        <div key={n._id || n.id || i} className={`notif-item ${!n.read ? 'unread' : ''}`} onClick={() => n._id && markRead(n._id)}>
+        <div 
+          key={n._id || n.id || i} 
+          className={`notif-item ${!n.read ? 'unread' : ''}`} 
+          onClick={() => {
+            if (n._id) markRead(n._id);
+            handleNotificationClick(n);
+          }}
+          style={{ cursor: n.link ? 'pointer' : 'default' }}
+        >
           <div className="notif-title">
-            {n.type === 'emergency' ? '🚨' : n.type === 'appointment' ? '📅' : n.type === 'lab_report' ? '🧪' : '🔔'} {n.title}
+            {n.type === 'emergency' ? '🚨' : n.type === 'appointment' ? '📅' : n.type === 'lab_report' ? '🧪' : n.type === 'medical_record' ? '📋' : '🔔'} {n.title}
           </div>
           <div className="notif-msg">{n.message}</div>
           <div className="notif-time">{n.createdAt ? format(new Date(n.createdAt), 'MMM d, h:mm a') : 'Just now'}</div>
@@ -249,6 +501,100 @@ function NotifPanel({ notifs, onClose, api }) {
 
 
 
+
+
+
+
+
+//components/ReadOnlyRecordView.js//
+
+import React from 'react';
+import { format } from 'date-fns';
+
+export default function ReadOnlyRecordView({ record, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📋 Medical Record (View Only)</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ background: 'rgba(0,194,255,.1)', padding: '8px 12px', borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+            ⓘ This is a read-only view. You cannot edit this record.
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <Info label="Doctor" value={`Dr. ${record.doctor_id?.name}`} />
+            <Info label="Specialization" value={record.doctor_id?.specialization} />
+            <Info label="Date" value={record.date ? format(new Date(record.date), 'MMMM d, yyyy') : '—'} />
+            <Info label="Diagnosis" value={record.diagnosis} />
+          </div>
+
+          {record.symptoms?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Symptoms</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {record.symptoms.map((s, i) => <span key={i} className="badge badge-info">{s}</span>)}
+              </div>
+            </div>
+          )}
+
+          {record.vital_signs && Object.values(record.vital_signs).some(Boolean) && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Vital Signs</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {record.vital_signs.blood_pressure && <VitalBadge label="BP" value={record.vital_signs.blood_pressure} />}
+                {record.vital_signs.pulse && <VitalBadge label="Pulse" value={record.vital_signs.pulse} />}
+                {record.vital_signs.temperature && <VitalBadge label="Temp" value={record.vital_signs.temperature} />}
+                {record.vital_signs.oxygen_level && <VitalBadge label="SpO₂" value={record.vital_signs.oxygen_level} />}
+              </div>
+            </div>
+          )}
+
+          {record.prescriptions?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Prescriptions</div>
+              {record.prescriptions.map((rx, i) => (
+                <div key={i} style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 8 }}>
+                  <strong>{rx.medicine}</strong>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                    {rx.dosage} • {rx.frequency} • {rx.duration}
+                  </div>
+                  {rx.notes && <div style={{ fontSize: 11, marginTop: 4 }}>📝 {rx.notes}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {record.other_records && <Info label="Additional Notes" value={record.other_records} />}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const Info = ({ label, value }) => (
+  <div>
+    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
+    <div style={{ fontSize: 13 }}>{value || '—'}</div>
+  </div>
+);
+
+const VitalBadge = ({ label, value }) => (
+  <div style={{ padding: '4px 10px', background: 'var(--surface3)', borderRadius: 8, fontSize: 12 }}>
+    <span style={{ color: 'var(--muted)' }}>{label}:</span> <strong>{value}</strong>
+  </div>
+);
+
+
+
+
+
+//context/AuthContext.js//
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
@@ -319,6 +665,7 @@ export { api };
 
 
 
+
 // ─── SocketContext.js ─────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
@@ -331,34 +678,39 @@ export const SocketProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [emergencyAlert, setEmergencyAlert] = useState(null);
 
-  useEffect(() => {
-    if (!userId) return;
+ // In the useEffect where socket connects, add room joining
+useEffect(() => {
+  if (!userId) return;
 
-    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
-      transports: ['websocket'],
-    });
+  socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
+    transports: ['websocket'],
+  });
 
-    const socket = socketRef.current;
+  const socket = socketRef.current;
 
-    socket.on('connect', () => {
-      socket.emit('register', userId);
-    });
+  socket.on('connect', () => {
+    socket.emit('register', userId);
+    // Join user-specific room for notifications
+    socket.emit('join_room', `user_${userId}`);
+  });
 
-    socket.on('online_users',    (users) => setOnlineUsers(users));
-    socket.on('emergency_broadcast', (data) => {
-      setEmergencyAlert(data);
-      setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
-    });
-    socket.on('new_appointment',      (data) => addNotif('appointment',  data));
-    socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
-    socket.on('new_lab_report',       (data) => addNotif('lab_report',   data));
-    socket.on('appointment_update',   () => {}); // handled per-page
-    socket.on('lab_report_update',    () => {});
-    socket.on('record_added',         () => {});
-
-    return () => socket.disconnect();
-  // eslint-disable-next-line
-  }, [userId]);
+  socket.on('online_users', (users) => setOnlineUsers(users));
+  socket.on('emergency_broadcast', (data) => {
+    setEmergencyAlert(data);
+    setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
+  });
+  
+  // Listen for real-time notifications
+  socket.on('new_notification', (notification) => {
+    setNotifications(n => [{ ...notification, id: Date.now(), read: false }, ...n]);
+  });
+  
+  socket.on('new_appointment', (data) => addNotif('appointment', data));
+  socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
+  socket.on('new_lab_report', (data) => addNotif('lab_report', data));
+  
+  return () => socket.disconnect();
+}, [userId]);
 
   const addNotif = (type, data) => {
     setNotifications(n => [{ ...data, id: Date.now(), type }, ...n.slice(0, 19)]);
@@ -391,12 +743,19 @@ export const useSocket = () => useContext(SocketContext);
 
 
 
+
+
+
+
+// pages/AdminUser.js//
 export { AdminUsers as default } from './Profile';
 
 
 
 
 
+
+//pages/Appointment.js//
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -672,6 +1031,12 @@ const Info = ({ label, value, style }) => (
 
 
 
+
+
+
+
+//pages/chat.js//
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -901,6 +1266,368 @@ export default function Chat() {
 
 
 
+
+
+//pages/Complaint.js//
+
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { format } from 'date-fns';
+
+const STATUS_BADGE = {
+  pending: 'badge-warning',
+  in_review: 'badge-info',
+  resolved: 'badge-success',
+  rejected: 'badge-danger',
+};
+
+const PRIORITY_BADGE = {
+  low: 'badge-info',
+  medium: 'badge-warning',
+  high: 'badge-danger',
+  urgent: 'badge-purple',
+};
+
+const CATEGORY_ICON = {
+  technical: '💻',
+  medical: '🏥',
+  billing: '💰',
+  staff: '👥',
+  suggestion: '💡',
+  other: '📝',
+};
+
+export default function Complaints() {
+  const { user, api, loading: authLoading } = useAuth();
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Wait for auth to load
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadComplaints();
+      if (user.role === 'admin') {
+        loadStats();
+      }
+    }
+    // eslint-disable-next-line
+  }, [authLoading, user]);
+
+  const loadComplaints = async () => {
+    try {
+      const res = await api.get('/complaints');
+      setComplaints(res.data);
+    } catch (err) {
+      console.error('Failed to load complaints', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const res = await api.get('/complaints/stats');
+      setStats(res.data);
+    } catch (err) {
+      console.error('Failed to load stats', err);
+    }
+  };
+
+  const updateStatus = async (id, status, response) => {
+    try {
+      await api.put(`/complaints/${id}/status`, { status, admin_response: response });
+      loadComplaints();
+      loadStats();
+      setSelectedComplaint(null);
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
+  };
+
+  // Show loading while auth is loading
+  if (authLoading || !user) {
+    return (
+      <div className="loader">
+        <div className="spinner"/>
+      </div>
+    );
+  }
+
+  const filteredComplaints = complaints.filter(c => {
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    if (filter !== 'all' && c.category !== filter) return false;
+    return true;
+  });
+
+  const categories = [...new Set(complaints.map(c => c.category))];
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1>Complaints & Feedback</h1>
+          <p>Track and manage your reported issues</p>
+        </div>
+      </div>
+
+      {/* Admin Stats Dashboard */}
+      {user.role === 'admin' && stats && (
+        <div className="stat-grid" style={{ marginBottom: 24 }}>
+          <div className="stat-card">
+            <div className="stat-icon">📊</div>
+            <div className="stat-value">{stats.total}</div>
+            <div className="stat-label">Total Complaints</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">⏳</div>
+            <div className="stat-value">{stats.pending + stats.inReview}</div>
+            <div className="stat-label">Open Complaints</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-value">{stats.resolved}</div>
+            <div className="stat-label">Resolved</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">🚨</div>
+            <div className="stat-value">{stats.byPriority?.urgent || 0}</div>
+            <div className="stat-label">Urgent Issues</div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <select className="form-select" style={{ width: 150 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="in_review">In Review</option>
+          <option value="resolved">Resolved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        
+        {user.role === 'admin' && (
+          <select className="form-select" style={{ width: 150 }} value={filter} onChange={e => setFilter(e.target.value)}>
+            <option value="all">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="loader"><div className="spinner"/></div>
+      ) : filteredComplaints.length === 0 ? (
+        <div className="empty-state">
+          <div className="icon">📝</div>
+          <h3>No complaints found</h3>
+          <p>Click the button below to report an issue</p>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => {
+              // Find and click the complaint button in the header
+              const complaintBtn = document.querySelector('.icon-btn[title="File a complaint"]');
+              if (complaintBtn) complaintBtn.click();
+            }}
+          >
+            + File a Complaint
+          </button>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {user.role === 'admin' && <th>User</th>}
+                  <th>Subject</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredComplaints.map(c => (
+                  <tr key={c._id}>
+                    {user.role === 'admin' && (
+                      <td>
+                        {c.is_anonymous ? (
+                          <span className="text-muted">Anonymous</span>
+                        ) : (
+                          <div>
+                            <strong>{c.user_name}</strong>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.user_role}</div>
+                          </div>
+                        )}
+                      </td>
+                    )}
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{c.subject}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {c.description.length > 60 ? c.description.slice(0, 60) + '...' : c.description}
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 16 }}>{CATEGORY_ICON[c.category]}</span>{' '}
+                      <span style={{ fontSize: 12 }}>{c.category}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${PRIORITY_BADGE[c.priority]}`}>{c.priority}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[c.status]}`}>
+                        {c.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {format(new Date(c.createdAt), 'MMM d, yyyy')}
+                    </td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setSelectedComplaint(c)}>
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Complaint Detail Modal */}
+      {selectedComplaint && (
+        <ComplaintDetailModal
+          complaint={selectedComplaint}
+          user={user}
+          onClose={() => setSelectedComplaint(null)}
+          onUpdate={updateStatus}
+        />
+      )}
+    </div>
+  );
+}
+
+function ComplaintDetailModal({ complaint, user, onClose, onUpdate }) {
+  const [response, setResponse] = useState(complaint.admin_response || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleStatusUpdate = async (status) => {
+    setIsUpdating(true);
+    await onUpdate(complaint._id, status, response);
+    setIsUpdating(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Complaint Details</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Subject</div>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>{complaint.subject}</div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Category</div>
+              <div>{CATEGORY_ICON[complaint.category]} {complaint.category}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Priority</div>
+              <span className={`badge ${PRIORITY_BADGE[complaint.priority]}`}>{complaint.priority}</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Status</div>
+              <span className={`badge ${STATUS_BADGE[complaint.status]}`}>{complaint.status.replace('_', ' ')}</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Submitted</div>
+              <div style={{ fontSize: 13 }}>{format(new Date(complaint.createdAt), 'MMMM d, yyyy h:mm a')}</div>
+            </div>
+          </div>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Description</div>
+            <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8 }}>
+              {complaint.description}
+            </div>
+          </div>
+          
+          {complaint.attachments?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Attachments</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {complaint.attachments.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                    📎 Attachment {i + 1}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {complaint.admin_response && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Admin Response</div>
+              <div style={{ padding: '10px 14px', background: 'rgba(0,194,255,.1)', borderRadius: 8, borderLeft: `3px solid var(--accent)` }}>
+                {complaint.admin_response}
+              </div>
+            </div>
+          )}
+          
+          {/* Admin Actions */}
+          {user.role === 'admin' && complaint.status !== 'resolved' && complaint.status !== 'rejected' && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Admin Response</div>
+              <textarea
+                className="form-textarea"
+                value={response}
+                onChange={e => setResponse(e.target.value)}
+                placeholder="Add a response to this complaint..."
+                rows={3}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn btn-info btn-sm" onClick={() => handleStatusUpdate('in_review')} disabled={isUpdating}>
+                  Mark In Review
+                </button>
+                <button className="btn btn-success btn-sm" onClick={() => handleStatusUpdate('resolved')} disabled={isUpdating}>
+                  Mark Resolved
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={() => handleStatusUpdate('rejected')} disabled={isUpdating}>
+                  Reject
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+//pages/Dashboard.js//
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -1091,287 +1818,20 @@ const TIPS = [
 
 
 
-// ─── Doctors.js ───────────────────────────────────────────────────────────────
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
-import { useNavigate } from 'react-router-dom';
-
-export function Doctors() {
-  const { api } = useAuth();
-  const { isOnline } = useSocket();
-  const navigate = useNavigate();
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [spec,    setSpec]    = useState('');
-
-  useEffect(() => {
-    api.get('/doctors').then(r => setDoctors(r.data)).finally(() => setLoading(false));
-  // eslint-disable-next-line
-  }, []);
-
-  const specs = [...new Set(doctors.map(d => d.specialization).filter(Boolean))];
-  const filtered = doctors.filter(d =>
-    (!search || d.name.toLowerCase().includes(search.toLowerCase())) &&
-    (!spec   || d.specialization === spec)
-  );
-
-  return (
-    <div>
-      <div className="page-header">
-        <div><h1>Doctors</h1><p>{filtered.length} of {doctors.length} doctors</p></div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div className="search-box" style={{ flex: 1, minWidth: 220 }}>
-          <span>🔍</span>
-          <input placeholder="Search doctors..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <select className="form-select" style={{ width: 200 }} value={spec} onChange={e => setSpec(e.target.value)}>
-          <option value="">All Specializations</option>
-          {specs.map(s => <option key={s}>{s}</option>)}
-        </select>
-      </div>
-
-      {loading ? <div className="loader"><div className="spinner"/></div> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {filtered.length === 0 ? (
-            <div className="empty-state" style={{ gridColumn: '1/-1' }}>
-              <div className="icon">👨‍⚕️</div><h3>No doctors found</h3>
-            </div>
-          ) : filtered.map(d => (
-            <div key={d._id} className="card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
-                <div className="avatar lg" style={{ position: 'relative' }}>
-                  {d.name[0]}
-                  <div style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: '50%', background: isOnline(d._id) ? 'var(--success)' : 'var(--muted)', border: '2px solid var(--surface)' }} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>Dr. {d.name}</div>
-                  <div style={{ fontSize: 13, color: 'var(--accent)', marginTop: 2 }}>{d.specialization || 'General'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{d.hospital?.name || 'Independent'}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                {d.phone && <div style={{ color: 'var(--text2)' }}>📞 {d.phone}</div>}
-                {d.email && <div style={{ color: 'var(--text2)' }}>✉️ {d.email}</div>}
-              </div>
-              <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => navigate('/appointments')}>
-                  📅 Book
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/chat')}>💬</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Patients.js ──────────────────────────────────────────────────────────────
-export function Patients() {
-  const { api } = useAuth();
-  const { isOnline } = useSocket();
-  const [patients, setPatients] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState('');
-  const [selected, setSelected] = useState(null);
-
-  useEffect(() => {
-    api.get('/patients').then(r => setPatients(r.data)).finally(() => setLoading(false));
-  // eslint-disable-next-line
-  }, []);
-
-  const filtered = patients.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div>
-      <div className="page-header">
-        <div><h1>Patients</h1><p>{filtered.length} patients</p></div>
-      </div>
-
-      <div className="search-box" style={{ maxWidth: 380, marginBottom: 20 }}>
-        <span>🔍</span>
-        <input placeholder="Search patients..." value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
-
-      {loading ? <div className="loader"><div className="spinner"/></div> : (
-        <div className="card" style={{ padding: 0 }}>
-          <table>
-            <thead>
-              <tr><th>Patient</th><th>Age / Gender</th><th>Blood Group</th><th>Contact</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p._id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="avatar sm">{p.name[0]}</div>
-                      <strong>{p.name}</strong>
-                    </div>
-                  </td>
-                  <td>{p.age} / {p.gender}</td>
-                  <td>{p.blood_group ? <span className="badge badge-danger">{p.blood_group}</span> : '—'}</td>
-                  <td>{p.phone || '—'}</td>
-                  <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-                      <div className={isOnline(p._id) ? 'online-dot' : 'offline-dot'} />
-                      {isOnline(p._id) ? 'Online' : 'Offline'}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>View</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {selected && <PatientModal p={selected} onClose={() => setSelected(null)} />}
-    </div>
-  );
-}
-
-function PatientModal({ p, onClose }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h2>Patient Profile</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-            <div className="avatar lg">{p.name[0]}</div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{p.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.email}</div>
-              {p.blood_group && <span className="badge badge-danger" style={{ marginTop: 6 }}>{p.blood_group}</span>}
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {[['Age', p.age],['Gender', p.gender],['Phone', p.phone],['Address', p.address],['Aadhar Verified', p.aadhar_verified ? '✅ Yes' : '❌ No']].map(([l, v]) => (
-              v && <div key={l}><div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>{l}</div><div>{v}</div></div>
-            ))}
-          </div>
-          {p.allergies?.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Allergies</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {p.allergies.map((a, i) => <span key={i} className="badge badge-danger">{a}</span>)}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={onClose}>Close</button></div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Hospitals.js ─────────────────────────────────────────────────────────────
-export function Hospitals() {
-  const { api } = useAuth();
-  const [hospitals, setHospitals] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editItem,  setEditItem]  = useState(null);
-
-  const load = () => api.get('/hospitals').then(r => setHospitals(r.data)).finally(() => setLoading(false));
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
-
-  const remove = async (id) => {
-    if (window.confirm('Deactivate this hospital?')) { await api.delete(`/hospitals/${id}`); load(); }
-  };
-
-  return (
-    <div>
-      <div className="page-header">
-        <div><h1>Hospitals</h1><p>{hospitals.length} registered hospitals</p></div>
-        <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowModal(true); }}>+ Add Hospital</button>
-      </div>
-
-      {loading ? <div className="loader"><div className="spinner"/></div> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {hospitals.map(h => (
-            <div key={h._id} className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <div style={{ fontSize: 32 }}>🏨</div>
-                <span className={`badge ${h.type === 'government' ? 'badge-success' : h.type === 'private' ? 'badge-info' : 'badge-warning'}`}>{h.type}</span>
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{h.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>📍 {h.address}</div>
-              {h.phone && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>📞 {h.phone}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => { setEditItem(h); setShowModal(true); }}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(h._id)}>Remove</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showModal && (
-        <HospitalModal item={editItem} onClose={() => setShowModal(false)} onSaved={load} api={api} />
-      )}
-    </div>
-  );
-}
-
-function HospitalModal({ item, onClose, onSaved, api }) {
-  const [form, setForm] = useState({ name: item?.name || '', address: item?.address || '', phone: item?.phone || '', email: item?.email || '', type: item?.type || 'private' });
-  const [loading, setLoading] = useState(false);
-  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-  const submit = async (e) => {
-    e.preventDefault(); setLoading(true);
-    try {
-      item ? await api.put(`/hospitals/${item._id}`, form) : await api.post('/hospitals', form);
-      onSaved(); onClose();
-    } finally { setLoading(false); }
-  };
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h2>{item ? 'Edit' : 'Add'} Hospital</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
-        <form onSubmit={submit}>
-          <div className="modal-body">
-            <div className="form-group"><label className="form-label">Hospital Name</label><input className="form-input" name="name" value={form.name} onChange={handle} required /></div>
-            <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" value={form.address} onChange={handle} required /></div>
-            <div className="form-grid">
-              <div className="form-group"><label className="form-label">Phone</label><input className="form-input" name="phone" value={form.phone} onChange={handle} /></div>
-              <div className="form-group"><label className="form-label">Email</label><input className="form-input" name="email" value={form.email} onChange={handle} /></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Type</label>
-              <select className="form-select" name="type" value={form.type} onChange={handle}>
-                <option>government</option><option>private</option><option>clinic</option>
-              </select>
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export default Doctors;
 
 
 
-
+//pages/Hospital.js//
 
 export { Hospitals as default } from './Doctors';
 
 
 
 
-// ─── LabReports.js ────────────────────────────────────────────────────────────
+
+
+//pages/LabReports.js//
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -1393,8 +1853,12 @@ export function LabReports() {
 
   useEffect(() => {
     load();
-    api.get('/patients').then(r => setPatients(r.data)).catch(() => {});
-    api.get('/doctors').then(r => setDoctors(r.data)).catch(() => {});
+    // Only load patients and doctors for roles that can upload (doctor, admin, lab_technician)
+    const canUpload = ['doctor', 'admin', 'lab_technician'].includes(user?.role);
+    if (canUpload) {
+      api.get('/patients').then(r => setPatients(r.data)).catch(() => {});
+      api.get('/doctors').then(r => setDoctors(r.data)).catch(() => {});
+    }
     if (!socket) return;
     socket.on('lab_report_update', load);
     return () => socket.off('lab_report_update', load);
@@ -1407,12 +1871,26 @@ export function LabReports() {
   };
 
   const STATUS_BADGE = { pending: 'badge-warning', processing: 'badge-info', completed: 'badge-success' };
+  
+  // Check if user can upload lab reports
+  const canUpload = user?.role === 'doctor' || user?.role === 'admin' || user?.role === 'lab_technician';
+
+  // Function to handle file viewing
+  const handleViewFile = (fileUrl) => {
+    // Construct full URL
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const fullUrl = `${baseUrl}${fileUrl}`;
+    window.open(fullUrl, '_blank');
+  };
 
   return (
     <div>
       <div className="page-header">
         <div><h1>Lab Reports</h1><p>{reports.length} total reports</p></div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Upload Report</button>
+        {/* Only show upload button for doctors, admins, and lab technicians */}
+        {canUpload && (
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Upload Report</button>
+        )}
       </div>
 
       {loading ? <div className="loader"><div className="spinner"/></div> : (
@@ -1420,7 +1898,15 @@ export function LabReports() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Record ID</th><th>Patient</th><th>Referred By</th><th>Test</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+                <tr>
+                  <th>Record ID</th>
+                  <th>Patient</th>
+                  <th>Referred By</th>
+                  <th>Test</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {reports.length === 0 ? (
@@ -1434,11 +1920,22 @@ export function LabReports() {
                     <td>{r.uploaded_at ? format(new Date(r.uploaded_at), 'MMM d, yyyy') : '—'}</td>
                     <td><span className={`badge ${STATUS_BADGE[r.status]}`}>{r.status}</span></td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {r.upload_files?.length > 0 && (
-                          <a href={r.upload_files[0]} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">📄 View</a>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {r.upload_files && r.upload_files.length > 0 ? (
+                          r.upload_files.map((file, idx) => (
+                            <button 
+                              key={idx}
+                              className="btn btn-ghost btn-sm" 
+                              onClick={() => handleViewFile(file)}
+                            >
+                              📄 View {r.upload_files.length > 1 ? `File ${idx + 1}` : 'Report'}
+                            </button>
+                          ))
+                        ) : (
+                          <span className="text-muted">No files</span>
                         )}
-                        {(user.role === 'doctor' || user.role === 'admin') && r.status !== 'completed' && (
+                        {/* Doctors, admins, and lab technicians can mark reports as completed */}
+                        {(user?.role === 'doctor' || user?.role === 'admin' || user?.role === 'lab_technician') && r.status !== 'completed' && (
                           <button className="btn btn-success btn-sm" onClick={() => updateStatus(r._id, 'completed', '')}>Mark Done</button>
                         )}
                       </div>
@@ -1451,7 +1948,8 @@ export function LabReports() {
         </div>
       )}
 
-      {showModal && (
+      {/* Only show upload modal for users who can upload */}
+      {showModal && canUpload && (
         <UploadModal patients={patients} doctors={doctors} user={user} onClose={() => setShowModal(false)} onUploaded={load} api={api} />
       )}
     </div>
@@ -1459,38 +1957,68 @@ export function LabReports() {
 }
 
 function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
-  const [form, setForm] = useState({ patient_id: user.role === 'patient' ? user._id : '', referred_by: '', test_name: '', test_type: '', notes: '' });
+  const [form, setForm] = useState({ 
+    patient_id: '', 
+    referred_by: '', 
+    test_name: '', 
+    test_type: '', 
+    notes: '' 
+  });
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.patient_id) {
+      setError('Please select a patient');
+      return;
+    }
+    if (files.length === 0) {
+      setError('Please select at least one file to upload');
+      return;
+    }
+    
     setLoading(true);
+    setError('');
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
       files.forEach(f => fd.append('files', f));
-      await api.post('/lab-reports', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      onUploaded(); onClose();
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      await api.post('/lab-reports', fd, { 
+        headers: { 'Content-Type': 'multipart/form-data' } 
+      });
+      onUploaded(); 
+      onClose();
+    } catch (err) { 
+      setError(err.response?.data?.message || 'Failed to upload report');
+      console.error(err); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h2>🧪 Upload Lab Report</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="modal-header">
+          <h2>🧪 Upload Lab Report</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
         <form onSubmit={submit}>
           <div className="modal-body">
-            {user.role !== 'patient' && (
-              <div className="form-group">
-                <label className="form-label">Patient</label>
-                <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
-                  <option value="">Select Patient</option>
-                  {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                </select>
+            {error && (
+              <div style={{ background: 'rgba(255,77,109,.12)', border: '1px solid rgba(255,77,109,.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>
+                {error}
               </div>
             )}
+            <div className="form-group">
+              <label className="form-label">Patient *</label>
+              <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
+                <option value="">Select Patient</option>
+                {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              </select>
+            </div>
             <div className="form-group">
               <label className="form-label">Referred By (Doctor)</label>
               <select className="form-select" value={form.referred_by} onChange={e => setForm(f => ({ ...f, referred_by: e.target.value }))}>
@@ -1509,9 +2037,15 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Upload Files (PDF / Images)</label>
-              <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFiles(Array.from(e.target.files))}
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }} />
+              <label className="form-label">Upload Files (PDF / Images) *</label>
+              <input 
+                type="file" 
+                multiple 
+                accept=".pdf,.jpg,.jpeg,.png" 
+                onChange={e => setFiles(Array.from(e.target.files))}
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }} 
+                required
+              />
               {files.length > 0 && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4 }}>{files.length} file(s) selected</div>}
             </div>
             <div className="form-group">
@@ -1534,6 +2068,11 @@ export default LabReports;
 
 
 
+
+
+
+
+//pages/Login.js//
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -1623,10 +2162,19 @@ export default function Login() {
 
 
 
+
+
+
+
+
+
+//pages/MedicalRecords.js//
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { format } from 'date-fns';
+import ReadOnlyRecordView from '../components/ReadOnlyRecordView';
 
 export default function MedicalRecords() {
   const { user, api } = useAuth();
@@ -1635,7 +2183,8 @@ export default function MedicalRecords() {
   const [patients, setPatients] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [selected,  setSelected]  = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [selectedRecordForEdit, setSelectedRecordForEdit] = useState(null);
   const [search, setSearch] = useState('');
 
   const load = useCallback(() => {
@@ -1645,17 +2194,33 @@ export default function MedicalRecords() {
 
   useEffect(() => {
     load();
-    if (user.role === 'doctor') api.get('/patients').then(r => setPatients(r.data));
+    if (user.role === 'doctor' || user.role === 'admin') {
+      api.get('/patients').then(r => setPatients(r.data));
+    }
     if (!socket) return;
     socket.on('record_added', load);
-    return () => socket.off('record_added', load);
+    socket.on('record_updated', load);
+    return () => {
+      socket.off('record_added', load);
+      socket.off('record_updated', load);
+    };
   // eslint-disable-next-line
   }, [socket]);
+
+  const handleRecordClick = (record) => {
+    if (user.role === 'patient') {
+      setSelectedRecord(record);
+    } else {
+      setSelectedRecordForEdit(record);
+    }
+  };
 
   const filtered = records.filter(r =>
     r.patient_id?.name?.toLowerCase().includes(search.toLowerCase()) ||
     r.diagnosis?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const canAddRecord = user.role === 'doctor' || user.role === 'admin';
 
   return (
     <div>
@@ -1664,7 +2229,7 @@ export default function MedicalRecords() {
           <h1>Medical Records</h1>
           <p>{records.length} records found</p>
         </div>
-        {user.role === 'doctor' && (
+        {canAddRecord && (
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Record</button>
         )}
       </div>
@@ -1685,7 +2250,7 @@ export default function MedicalRecords() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(r => (
-            <div key={r._id} className="card" style={{ cursor: 'pointer', padding: '18px 20px' }} onClick={() => setSelected(r)}>
+            <div key={r._id} className="card" style={{ cursor: 'pointer', padding: '18px 20px' }} onClick={() => handleRecordClick(r)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <div className="avatar" style={{ width: 44, height: 44, fontSize: 18 }}>
@@ -1728,8 +2293,23 @@ export default function MedicalRecords() {
         <AddRecordModal patients={patients} onClose={() => setShowModal(false)} onAdded={load} api={api} />
       )}
 
-      {selected && (
-        <RecordDetailModal record={selected} onClose={() => setSelected(null)} />
+      {/* Read-only view for patients */}
+      {selectedRecord && user.role === 'patient' && (
+        <ReadOnlyRecordView 
+          record={selectedRecord} 
+          onClose={() => setSelectedRecord(null)} 
+        />
+      )}
+
+      {/* Editable view for doctors/admins */}
+      {selectedRecordForEdit && (user.role === 'doctor' || user.role === 'admin') && (
+        <EditRecordModal 
+          record={selectedRecordForEdit} 
+          patients={patients}
+          onClose={() => setSelectedRecordForEdit(null)} 
+          onUpdated={load} 
+          api={api} 
+        />
       )}
     </div>
   );
@@ -1871,61 +2451,136 @@ function AddRecordModal({ patients, onClose, onAdded, api }) {
   );
 }
 
-function RecordDetailModal({ record: r, onClose }) {
+function EditRecordModal({ record, patients, onClose, onUpdated, api }) {
+  const [form, setForm] = useState({
+    patient_id: record.patient_id?._id || '',
+    date: record.date ? new Date(record.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    diagnosis: record.diagnosis || '',
+    symptoms: record.symptoms?.join(', ') || '',
+    other_records: record.other_records || '',
+    is_emergency: record.is_emergency || false,
+    vital_signs: record.vital_signs || { blood_pressure: '', pulse: '', temperature: '', weight: '', height: '', oxygen_level: '' },
+    prescriptions: record.prescriptions || [{ medicine: '', dosage: '', frequency: '', duration: '', notes: '' }],
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleVital = e => setForm(f => ({ ...f, vital_signs: { ...f.vital_signs, [e.target.name]: e.target.value } }));
+  const handleRx = (i, e) => setForm(f => {
+    const p = [...f.prescriptions];
+    p[i] = { ...p[i], [e.target.name]: e.target.value };
+    return { ...f, prescriptions: p };
+  });
+  const addRx = () => setForm(f => ({ ...f, prescriptions: [...f.prescriptions, { medicine: '', dosage: '', frequency: '', duration: '', notes: '' }] }));
+  const removeRx = i => setForm(f => ({ ...f, prescriptions: f.prescriptions.filter((_, idx) => idx !== i) }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = { ...form, symptoms: form.symptoms.split(',').map(s => s.trim()).filter(Boolean) };
+      await api.put(`/medical-records/${record._id}`, payload);
+      onUpdated(); onClose();
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Medical Record</h2>
+          <h2>✏️ Edit Medical Record</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <Info label="Patient"  value={r.patient_id?.name} />
-            <Info label="Doctor"   value={`Dr. ${r.doctor_id?.name}`} />
-            <Info label="Date"     value={r.date ? format(new Date(r.date), 'MMMM d, yyyy') : '—'} />
-            <Info label="Diagnosis" value={r.diagnosis} />
-          </div>
-
-          {r.symptoms?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Symptoms</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {r.symptoms.map((s, i) => <span key={i} className="badge badge-info">{s}</span>)}
+        <form onSubmit={submit}>
+          <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Patient</label>
+                <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
+                  <option value="">Select Patient</option>
+                  {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <input className="form-input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
               </div>
             </div>
-          )}
 
-          {r.prescriptions?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 8 }}>Prescriptions</div>
-              {r.prescriptions.map((rx, i) => (
-                <div key={i} style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 8 }}>
-                  <strong>{rx.medicine}</strong>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
-                    {rx.dosage} • {rx.frequency} • {rx.duration}
+            <div className="form-group">
+              <label className="form-label">Diagnosis</label>
+              <input className="form-input" value={form.diagnosis} onChange={e => setForm(f => ({ ...f, diagnosis: e.target.value }))} placeholder="Primary diagnosis..." />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Symptoms (comma separated)</label>
+              <input className="form-input" value={form.symptoms} onChange={e => setForm(f => ({ ...f, symptoms: e.target.value }))} placeholder="Fever, Headache, Cough..." />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Vital Signs</div>
+              <div className="form-grid-3">
+                {[['blood_pressure','BP (mmHg)'],['pulse','Pulse (bpm)'],['temperature','Temp (°C)'],['weight','Weight (kg)'],['height','Height (cm)'],['oxygen_level','SpO₂ (%)']].map(([k, label]) => (
+                  <div className="form-group" key={k} style={{ marginBottom: 8 }}>
+                    <label className="form-label">{label}</label>
+                    <input className="form-input" name={k} value={form.vital_signs[k]} onChange={handleVital} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Prescriptions</div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={addRx}>+ Add</button>
+              </div>
+              {form.prescriptions.map((rx, i) => (
+                <div key={i} style={{ padding: 12, background: 'var(--surface2)', borderRadius: 10, marginBottom: 10, position: 'relative' }}>
+                  {form.prescriptions.length > 1 && (
+                    <button type="button" style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14 }} onClick={() => removeRx(i)}>✕</button>
+                  )}
+                  <div className="form-grid">
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Medicine</label>
+                      <input className="form-input" name="medicine" value={rx.medicine} onChange={e => handleRx(i, e)} placeholder="Paracetamol 500mg" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Dosage</label>
+                      <input className="form-input" name="dosage" value={rx.dosage} onChange={e => handleRx(i, e)} placeholder="1 tablet" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Frequency</label>
+                      <input className="form-input" name="frequency" value={rx.frequency} onChange={e => handleRx(i, e)} placeholder="3x daily" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label className="form-label">Duration</label>
+                      <input className="form-input" name="duration" value={rx.duration} onChange={e => handleRx(i, e)} placeholder="5 days" />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          )}
 
-          {r.other_records && <Info label="Notes" value={r.other_records} />}
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>Close</button>
-        </div>
+            <div className="form-group">
+              <label className="form-label">Additional Notes</label>
+              <textarea className="form-textarea" value={form.other_records} onChange={e => setForm(f => ({ ...f, other_records: e.target.value }))} />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+              <input type="checkbox" checked={form.is_emergency} onChange={e => setForm(f => ({ ...f, is_emergency: e.target.checked }))} />
+              Mark as Emergency Record
+            </label>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Updating…' : 'Update Record'}</button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
-const Info = ({ label, value }) => (
-  <div>
-    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>{label}</div>
-    <div style={{ fontSize: 13 }}>{value || '—'}</div>
-  </div>
-);
 
 
 
@@ -1933,12 +2588,17 @@ const Info = ({ label, value }) => (
 
 
 
+
+
+
+//pages/Patients.js//
 export { Patients as default } from './Doctors';
 
 
 
 
 
+//pages/Profil.js//
 // ─── Profile.js ───────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -2151,6 +2811,14 @@ export default Profile;
 
 
 
+
+
+
+
+
+
+//pages/Register.js//
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -2358,6 +3026,14 @@ export default function Register() {
 
 
 
+
+
+
+
+
+
+//App.js.//
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -2376,6 +3052,7 @@ import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import AdminUsers from './pages/AdminUsers';
 import './index.css';
+import Complaints from './pages/Complaints';
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -2406,6 +3083,7 @@ const AppRoutes = () => {
             <Route path="admin/users"     element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="complaints" element={<Complaints />} />
         </Routes>
       </BrowserRouter>
     </SocketProvider>
@@ -2423,6 +3101,12 @@ export default function App() {
 
 
 
+
+
+
+
+
+//index.css//
 
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
@@ -2837,6 +3521,12 @@ td strong { color: var(--text); }
 
 
 
+
+
+
+
+
+//index.js//
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -2850,7 +3540,56 @@ root.render(<React.StrictMode><App /></React.StrictMode>);
 
 
 
+//package.json//
 
+{
+  "name": "vitalbyte-client",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "axios": "^1.6.2",
+    "date-fns": "^3.0.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.1",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.10.3",
+    "socket.io-client": "^4.6.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  },
+  "proxy": "http://localhost:5000",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+//server/middleware/auth.js//
 
 const jwt = require('jsonwebtoken');
 const { Auth, User } = require('../models');
@@ -2886,6 +3625,15 @@ module.exports = { protect, restrictTo };
 
 
 
+
+
+
+
+
+
+
+
+//server/models/index.js//
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -3019,6 +3767,32 @@ const notificationSchema = new mongoose.Schema({
   read:     { type: Boolean, default: false },
   link:     { type: String },
 }, { timestamps: true });
+const complaintSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user_name: { type: String, required: true },
+  user_role: { type: String, enum: ['patient', 'doctor', 'admin', 'lab_technician'], required: true },
+  subject: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { 
+    type: String, 
+    enum: ['technical', 'medical', 'billing', 'staff', 'suggestion', 'other'], 
+    default: 'other' 
+  },
+  priority: { 
+    type: String, 
+    enum: ['low', 'medium', 'high', 'urgent'], 
+    default: 'medium' 
+  },
+  status: { 
+    type: String, 
+    enum: ['pending', 'in_review', 'resolved', 'rejected'], 
+    default: 'pending' 
+  },
+  admin_response: { type: String },
+  resolved_at: { type: Date },
+  attachments: [{ type: String }], // URLs to uploaded files
+  is_anonymous: { type: Boolean, default: false },
+}, { timestamps: true });
 
 module.exports = {
   User:          mongoose.model('User',          userSchema),
@@ -3029,6 +3803,7 @@ module.exports = {
   LabReport:     mongoose.model('LabReport',     labReportSchema),
   Message:       mongoose.model('Message',       messageSchema),
   Notification:  mongoose.model('Notification',  notificationSchema),
+  Complaint: mongoose.model('Complaint', complaintSchema),
 };
 
 
@@ -3036,6 +3811,10 @@ module.exports = {
 
 
 
+
+
+
+//server/routs/appointment.js//
 
 const express = require('express');
 const router = express.Router();
@@ -3119,15 +3898,29 @@ router.put('/:id/status', protect, async (req, res) => {
 
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
+    // Notify patient about status change
     await Notification.create({
       user_id: appointment.patient_id._id,
-      title: `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      title: `📅 Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
       message: `Your appointment with Dr. ${appointment.doctor_id.name} has been ${status}.`,
       type: 'appointment',
+      link: '/appointments'
     });
+    
+    // Notify doctor if patient cancels
+    if (status === 'cancelled' && req.user.role === 'patient') {
+      await Notification.create({
+        user_id: appointment.doctor_id._id,
+        title: 'Appointment Cancelled',
+        message: `Patient ${appointment.patient_id.name} has cancelled the appointment.`,
+        type: 'appointment',
+        link: '/appointments'
+      });
+    }
 
     const io = req.app.get('io');
-    io.emit('appointment_update', appointment);
+    io.to(`user_${appointment.patient_id._id}`).emit('appointment_update', appointment);
+    io.to(`user_${appointment.doctor_id._id}`).emit('appointment_update', appointment);
 
     res.json(appointment);
   } catch (err) {
@@ -3145,7 +3938,9 @@ router.delete('/:id', protect, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+
 });
+
 
 module.exports = router;
 
@@ -3153,6 +3948,12 @@ module.exports = router;
 
 
 
+
+
+
+
+
+//server/routes/auth.js//
 
 const express = require('express');
 const router = express.Router();
@@ -3257,6 +4058,181 @@ module.exports = router;
 
 
 
+
+//server/routes/complaints.js//
+
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { Complaint, Notification, User } = require('../models');
+const { protect, restrictTo } = require('../middleware/auth');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../uploads/complaints');
+    require('fs').mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+// GET /api/complaints - list complaints based on role
+router.get('/', protect, async (req, res) => {
+  try {
+    let filter = {};
+    if (req.user.role !== 'admin') {
+      filter.user_id = req.user._id;
+    }
+    
+    const complaints = await Complaint.find(filter)
+      .sort({ createdAt: -1 });
+    
+    res.json(complaints);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/complaints/stats - admin stats
+router.get('/stats', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const stats = {
+      total: await Complaint.countDocuments(),
+      pending: await Complaint.countDocuments({ status: 'pending' }),
+      inReview: await Complaint.countDocuments({ status: 'in_review' }),
+      resolved: await Complaint.countDocuments({ status: 'resolved' }),
+      rejected: await Complaint.countDocuments({ status: 'rejected' }),
+      byCategory: {},
+      byPriority: {},
+    };
+    
+    const categories = ['technical', 'medical', 'billing', 'staff', 'suggestion', 'other'];
+    for (const cat of categories) {
+      stats.byCategory[cat] = await Complaint.countDocuments({ category: cat });
+    }
+    
+    const priorities = ['low', 'medium', 'high', 'urgent'];
+    for (const pri of priorities) {
+      stats.byPriority[pri] = await Complaint.countDocuments({ priority: pri });
+    }
+    
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/complaints - create new complaint
+router.post('/', protect, upload.array('attachments', 5), async (req, res) => {
+  try {
+    const attachments = req.files?.map(f => `/uploads/complaints/${f.filename}`) || [];
+    
+    const complaint = await Complaint.create({
+      user_id: req.user._id,
+      user_name: req.user.name,
+      user_role: req.user.role,
+      subject: req.body.subject,
+      description: req.body.description,
+      category: req.body.category || 'other',
+      priority: req.body.priority || 'medium',
+      attachments,
+      is_anonymous: req.body.is_anonymous === 'true',
+    });
+    
+    // Notify all admins
+    const admins = await User.find({ role: 'admin' });
+    for (const admin of admins) {
+      await Notification.create({
+        user_id: admin._id,
+        title: 'New Complaint Received',
+        message: `New ${complaint.priority} priority complaint from ${complaint.is_anonymous ? 'Anonymous' : complaint.user_name}: ${complaint.subject}`,
+        type: 'general',
+        link: '/complaints',
+      });
+    }
+    
+    // Emit socket event for real-time admin notification
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_complaint', complaint);
+    }
+    
+    res.status(201).json(complaint);
+  } catch (err) {
+    console.error('Error creating complaint:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/complaints/:id/status - update complaint status (admin only)
+router.put('/:id/status', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const { status, admin_response } = req.body;
+    const updateData = { status };
+    
+    if (admin_response) {
+      updateData.admin_response = admin_response;
+    }
+    
+    if (status === 'resolved') {
+      updateData.resolved_at = new Date();
+    }
+    
+    const complaint = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
+    
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+    
+    // Notify the user who filed the complaint
+    await Notification.create({
+      user_id: complaint.user_id,
+      title: `Complaint ${status === 'resolved' ? 'Resolved' : 'Updated'}`,
+      message: `Your complaint "${complaint.subject}" has been ${status.replace('_', ' ')}.${admin_response ? ' Admin response: ' + admin_response : ''}`,
+      type: 'general',
+      link: '/complaints',
+    });
+    
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('complaint_updated', complaint);
+    }
+    
+    res.json(complaint);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/complaints/:id - delete complaint (admin only)
+router.delete('/:id', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    await Complaint.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Complaint deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+
+
+
+
+
+//server/routes/dashboard.js//
+
 const express = require('express');
 const router = express.Router();
 const { User, Appointment, MedicalRecord, LabReport, Hospital } = require('../models');
@@ -3325,6 +4301,8 @@ module.exports = router;
 
 
 
+
+//server/routes/docters.js//
 const express = require('express');
 const router = express.Router();
 const { User } = require('../models');
@@ -3352,6 +4330,9 @@ module.exports = router;
 
 
 
+
+
+//server/routes/hospital.js//
 
 // hospitals.js
 const express = require('express');
@@ -3393,13 +4374,17 @@ module.exports = router;
 
 
 
+
+
+//server/routes/LabReports.js//
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { LabReport, Notification } = require('../models');
-const { protect } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads/lab-reports')),
@@ -3416,10 +4401,12 @@ router.get('/', protect, async (req, res) => {
       .populate('referred_by', 'name specialization')
       .sort({ uploaded_at: -1 });
     res.json(reports);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
-router.post('/', protect, upload.array('files', 5), async (req, res) => {
+router.post('/', protect, restrictTo('admin', 'doctor', 'lab_technician'), upload.array('files', 5), async (req, res) => {
   try {
     const files = req.files?.map(f => `/uploads/lab-reports/${f.filename}`) || [];
     const report = await LabReport.create({
@@ -3427,32 +4414,99 @@ router.post('/', protect, upload.array('files', 5), async (req, res) => {
       record_id: `LR-${uuidv4().slice(0, 8).toUpperCase()}`,
       upload_files: files,
       uploaded_at: new Date(),
+      uploaded_by: req.user._id,
+      uploaded_by_name: req.user.name,
+      uploaded_by_role: req.user.role
     });
 
+    const populated = await report.populate('patient_id', 'name email');
+    
     const io = req.app.get('io');
     io.emit('lab_report_update', report);
-
+    
+    // Notify patient
+    await Notification.create({
+      user_id: req.body.patient_id,
+      title: '🧪 New Lab Report Available',
+      message: `${req.user.role === 'lab_technician' ? 'Lab technician' : `Dr. ${req.user.name}`} has uploaded a new lab report for ${report.test_name || 'your test'}.`,
+      type: 'lab_report',
+      link: '/lab-reports',
+      metadata: { reportId: report._id, type: 'lab_report' }
+    });
+    
+    // Real-time notification for patient
+    io.to(`user_${req.body.patient_id}`).emit('new_notification', {
+      title: 'New Lab Report',
+      message: `A new lab report has been uploaded for you`,
+      type: 'lab_report',
+      timestamp: new Date()
+    });
+    
+    // Notify referring doctor if exists
     if (req.body.referred_by) {
       await Notification.create({
         user_id: req.body.referred_by,
         title: 'Lab Report Uploaded',
-        message: `A new lab report has been uploaded for patient.`,
+        message: `Lab report for ${populated.patient_id?.name} has been uploaded.`,
         type: 'lab_report',
+        link: '/lab-reports'
       });
     }
+    
     res.status(201).json(report);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    console.error('Error uploading lab report:', err);
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
-router.put('/:id/status', protect, async (req, res) => {
+// Patients can only view, not update
+router.put('/:id/status', protect, restrictTo('admin', 'doctor', 'lab_technician'), async (req, res) => {
   try {
     const report = await LabReport.findByIdAndUpdate(
-      req.params.id, { status: req.body.status, results: req.body.results }, { new: true }
+      req.params.id, 
+      { status: req.body.status, results: req.body.results }, 
+      { new: true }
     );
-    const io = req.app.get('io');
-    io.emit('lab_report_update', report);
+    
+    // Notify patient about status update
+    if (report) {
+      await Notification.create({
+        user_id: report.patient_id,
+        title: '📊 Lab Report Status Updated',
+        message: `Your lab report status has been updated to ${req.body.status}.`,
+        type: 'lab_report',
+        link: '/lab-reports'
+      });
+      
+      const io = req.app.get('io');
+      io.to(`user_${report.patient_id}`).emit('lab_report_updated', report);
+    }
+    
     res.json(report);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
+// Get single report for viewing
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const report = await LabReport.findById(req.params.id)
+      .populate('patient_id', 'name age gender')
+      .populate('referred_by', 'name specialization');
+    
+    if (!report) return res.status(404).json({ message: 'Not found' });
+    
+    // Check permission
+    if (req.user.role === 'patient' && report.patient_id._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;
@@ -3462,13 +4516,12 @@ module.exports = router;
 
 
 
+//server/routes/medicalRecords.js//
 
-
-// ─── medicalRecords.js ────────────────────────────────────────────────────────
 const express = require('express');
 const router = express.Router();
 const { MedicalRecord, Notification } = require('../models');
-const { protect } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 
 router.get('/', protect, async (req, res) => {
   try {
@@ -3483,31 +4536,77 @@ router.get('/', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, restrictTo('doctor', 'admin'), async (req, res) => {
   try {
     const record = await MedicalRecord.create({ ...req.body, doctor_id: req.user._id });
     const populated = await record.populate([
       { path: 'patient_id', select: 'name age gender' },
       { path: 'doctor_id',  select: 'name specialization' },
     ]);
+    
+    // Create notification for patient
     await Notification.create({
       user_id: req.body.patient_id,
-      title: 'New Medical Record Added',
-      message: `Dr. ${req.user.name} has added a new medical record for you.`,
-      type: 'general',
+      title: '📋 New Medical Record Added',
+      message: `Dr. ${req.user.name} has added a new medical record for you. Diagnosis: ${record.diagnosis || 'Check details'}`,
+      type: 'medical_record',
+      link: '/medical-records',
+      metadata: { recordId: record._id, type: 'medical_record' }
     });
+    
+    // Real-time notification via socket
     const io = req.app.get('io');
+    io.to(`user_${req.body.patient_id}`).emit('new_notification', {
+      title: 'New Medical Record',
+      message: `Dr. ${req.user.name} added a medical record`,
+      type: 'medical_record',
+      timestamp: new Date()
+    });
     io.emit('record_added', populated);
+    
     res.status(201).json(populated);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
+// Get single record - for viewing only
 router.get('/:id', protect, async (req, res) => {
   try {
     const record = await MedicalRecord.findById(req.params.id)
-      .populate('patient_id').populate('doctor_id');
+      .populate('patient_id', 'name age gender blood_group')
+      .populate('doctor_id', 'name specialization');
+    
     if (!record) return res.status(404).json({ message: 'Not found' });
+    
+    // Check if user has permission to view
+    if (req.user.role === 'patient' && record.patient_id._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
     res.json(record);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// No PUT/DELETE for patients - only doctors/admins can edit
+router.put('/:id', protect, restrictTo('doctor', 'admin'), async (req, res) => {
+  try {
+    const record = await MedicalRecord.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const populated = await record.populate(['patient_id', 'doctor_id']);
+    
+    // Notify patient about update
+    await Notification.create({
+      user_id: record.patient_id._id,
+      title: '✏️ Medical Record Updated',
+      message: `Dr. ${req.user.name} has updated your medical record.`,
+      type: 'medical_record',
+      link: '/medical-records'
+    });
+    
+    const io = req.app.get('io');
+    io.to(`user_${record.patient_id._id}`).emit('record_updated', populated);
+    
+    res.json(populated);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -3519,7 +4618,7 @@ module.exports = router;
 
 
 
-
+//server/routes/patients.js//
 
 // patients.js
 const express = require('express');
@@ -3550,6 +4649,9 @@ module.exports = router;
 
 
 
+
+
+//server/routes/User.js//
 
 // ── users.js ──────────────────────────────────────────────────────────────────
 const express = require('express');
@@ -3607,6 +4709,8 @@ module.exports = r1;
 
 
 
+//index.js//
+
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -3638,7 +4742,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/vitalbyte')
   .then(() => console.log('✅ MongoDB connected'))
@@ -3654,6 +4757,7 @@ app.use('/api/medical-records', require('./routes/medicalRecords'));
 app.use('/api/lab-reports',  require('./routes/labReports'));
 app.use('/api/hospitals',    require('./routes/hospitals'));
 app.use('/api/dashboard',    require('./routes/dashboard'));
+app.use('/api/complaints', require('./routes/complaints'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
@@ -3665,9 +4769,11 @@ io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
 
   // Register user with their userId
-  socket.on('register', (userId) => {
+    socket.on('register', (userId) => {
     connectedUsers.set(userId, socket.id);
     socket.userId = userId;
+    // Join user-specific room
+    socket.join(`user_${userId}`);
     io.emit('online_users', Array.from(connectedUsers.keys()));
     console.log(`👤 User ${userId} registered on socket ${socket.id}`);
   });
@@ -3773,6 +4879,7 @@ server.listen(PORT, () => {
 
 
 
+//seed.js//
 
 /**
  * VitalByte - Database Seeder
@@ -3932,3 +5039,10 @@ seed().catch(err => {
   console.error('❌ Seed failed:', err.message);
   process.exit(1);
 });
+
+
+
+
+
+
+
