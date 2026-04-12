@@ -56,9 +56,11 @@ io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
 
   // Register user with their userId
-  socket.on('register', (userId) => {
+    socket.on('register', (userId) => {
     connectedUsers.set(userId, socket.id);
     socket.userId = userId;
+    // Join user-specific room
+    socket.join(`user_${userId}`);
     io.emit('online_users', Array.from(connectedUsers.keys()));
     console.log(`👤 User ${userId} registered on socket ${socket.id}`);
   });

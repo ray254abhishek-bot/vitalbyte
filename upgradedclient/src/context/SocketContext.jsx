@@ -1,4 +1,3 @@
-// ─── SocketContext.js ─────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
@@ -10,39 +9,42 @@ export const SocketProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [emergencyAlert, setEmergencyAlert] = useState(null);
 
- // In the useEffect where socket connects, add room joining
-useEffect(() => {
-  if (!userId) return;
+  useEffect(() => {
+    if (!userId) return;
 
-  socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
-    transports: ['websocket'],
-  });
+    socketRef.current = io('/', {
+      transports: ['websocket'],
+      path: '/socket.io',
+    });
 
-  const socket = socketRef.current;
+    const socket = socketRef.current;
 
-  socket.on('connect', () => {
-    socket.emit('register', userId);
-    // Join user-specific room for notifications
-    socket.emit('join_room', `user_${userId}`);
-  });
+    socket.on('connect', () => {
+      console.log('Socket connected');
+      socket.emit('register', userId);
+      socket.emit('join_room', `user_${userId}`);
+    });
 
-  socket.on('online_users', (users) => setOnlineUsers(users));
-  socket.on('emergency_broadcast', (data) => {
-    setEmergencyAlert(data);
-    setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
-  });
-  
-  // Listen for real-time notifications
-  socket.on('new_notification', (notification) => {
-    setNotifications(n => [{ ...notification, id: Date.now(), read: false }, ...n]);
-  });
-  
-  socket.on('new_appointment', (data) => addNotif('appointment', data));
-  socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
-  socket.on('new_lab_report', (data) => addNotif('lab_report', data));
-  
-  return () => socket.disconnect();
-}, [userId]);
+    socket.on('online_users', (users) => setOnlineUsers(users));
+    socket.on('emergency_broadcast', (data) => {
+      setEmergencyAlert(data);
+      setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
+    });
+    
+    socket.on('new_notification', (notification) => {
+      setNotifications(n => [{ ...notification, id: Date.now(), read: false }, ...n]);
+    });
+    
+    socket.on('new_appointment', (data) => addNotif('appointment', data));
+    socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
+    socket.on('new_lab_report', (data) => addNotif('lab_report', data));
+    socket.on('record_added', (data) => addNotif('medical_record', data));
+    socket.on('record_updated', (data) => addNotif('medical_record', data));
+    
+    return () => {
+      socket.disconnect();
+    };
+  }, [userId]);
 
   const addNotif = (type, data) => {
     setNotifications(n => [{ ...data, id: Date.now(), type }, ...n.slice(0, 19)]);

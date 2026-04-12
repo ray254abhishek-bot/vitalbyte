@@ -80,15 +80,29 @@ router.put('/:id/status', protect, async (req, res) => {
 
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
+    // Notify patient about status change
     await Notification.create({
       user_id: appointment.patient_id._id,
-      title: `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      title: `📅 Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
       message: `Your appointment with Dr. ${appointment.doctor_id.name} has been ${status}.`,
       type: 'appointment',
+      link: '/appointments'
     });
+    
+    // Notify doctor if patient cancels
+    if (status === 'cancelled' && req.user.role === 'patient') {
+      await Notification.create({
+        user_id: appointment.doctor_id._id,
+        title: 'Appointment Cancelled',
+        message: `Patient ${appointment.patient_id.name} has cancelled the appointment.`,
+        type: 'appointment',
+        link: '/appointments'
+      });
+    }
 
     const io = req.app.get('io');
-    io.emit('appointment_update', appointment);
+    io.to(`user_${appointment.patient_id._id}`).emit('appointment_update', appointment);
+    io.to(`user_${appointment.doctor_id._id}`).emit('appointment_update', appointment);
 
     res.json(appointment);
   } catch (err) {
@@ -106,6 +120,8 @@ router.delete('/:id', protect, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+
 });
+
 
 module.exports = router;
