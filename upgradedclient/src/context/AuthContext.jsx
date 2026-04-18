@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = 'https://apivitalbyte.deployhub.online/api';
 
 const api = axios.create({
   baseURL: API_URL,
