@@ -36,6 +36,13 @@ const authSchema = new mongoose.Schema({
   otp_expires:        { type: Date },
   refresh_token:      { type: String },
 }, { timestamps: true });
+authSchema.add({
+  email_verified: { type: Boolean, default: false },
+  phone_verified: { type: Boolean, default: false },
+  google_id: { type: String, unique: true, sparse: true },
+  two_factor_enabled: { type: Boolean, default: false },
+  two_factor_secret: { type: String },
+});
 
 authSchema.pre('save', async function(next) {
   if (!this.isModified('user_password')) return next();
@@ -156,6 +163,24 @@ const complaintSchema = new mongoose.Schema({
   attachments: [{ type: String }], // URLs to uploaded files
   is_anonymous: { type: Boolean, default: false },
 }, { timestamps: true });
+const otpSchema = new mongoose.Schema({
+  email: { type: String, lowercase: true },
+  phone: { type: String },
+  otp: { type: String, required: true },
+  type: { type: String, enum: ['email_verification', 'password_reset', 'mobile_verification', 'mobile_reset'], required: true },
+  expires_at: { type: Date, required: true },
+  used: { type: Boolean, default: false },
+  attempts: { type: Number, default: 0 },
+}, { timestamps: true });
+
+// Password Reset Token Model
+const passwordResetSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  token: { type: String, required: true, unique: true },
+  expires_at: { type: Date, required: true },
+  used: { type: Boolean, default: false },
+}, { timestamps: true });
+
 
 module.exports = {
   User:          mongoose.model('User',          userSchema),
@@ -167,4 +192,6 @@ module.exports = {
   Message:       mongoose.model('Message',       messageSchema),
   Notification:  mongoose.model('Notification',  notificationSchema),
   Complaint: mongoose.model('Complaint', complaintSchema),
+   OTP: mongoose.model('OTP', otpSchema),
+  PasswordReset: mongoose.model('PasswordReset', passwordResetSchema),
 };

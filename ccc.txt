@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-
-
-//components/ComplaintModel.js//
-
+//upgradedclient//
+//components/ComplaintModal.jsx//
 import React, { useState } from 'react';
 
 const CATEGORIES = [
@@ -201,19 +198,13 @@ export default function ComplaintModal({ onClose, onSubmit, api }) {
 
 
 
-//components/Layout.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
+//components/Layout.jsx//
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { format } from 'date-fns';
-<<<<<<< HEAD
 import ComplaintModal from './ComplaintModal';
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
 const NAV = {
   patient: [
@@ -224,14 +215,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Connect', items: [
-<<<<<<< HEAD
       { to: '/doctors',    icon: '👨‍⚕️', label: 'Find Doctors' },
       { to: '/chat',       icon: '💬', label: 'Messages' },
       { to: '/complaints', icon: '📝', label: 'Complaints' },
-=======
-      { to: '/doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
-      { to: '/chat',    icon: '💬', label: 'Messages' },
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     ]},
   ],
   doctor: [
@@ -242,14 +228,9 @@ const NAV = {
       { to: '/lab-reports',     icon: '🧪', label: 'Lab Reports' },
     ]},
     { section: 'Manage', items: [
-<<<<<<< HEAD
       { to: '/patients',   icon: '🏥', label: 'My Patients' },
       { to: '/chat',       icon: '💬', label: 'Messages' },
       { to: '/complaints', icon: '📝', label: 'Complaints' },
-=======
-      { to: '/patients', icon: '🏥', label: 'My Patients' },
-      { to: '/chat',     icon: '💬', label: 'Messages' },
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     ]},
   ],
   admin: [
@@ -258,18 +239,11 @@ const NAV = {
       { to: '/appointments', icon: '📅', label: 'Appointments' },
     ]},
     { section: 'Management', items: [
-<<<<<<< HEAD
       { to: '/admin/users',  icon: '👥', label: 'All Users' },
       { to: '/doctors',      icon: '👨‍⚕️', label: 'Doctors' },
       { to: '/patients',     icon: '🏥', label: 'Patients' },
       { to: '/hospitals',    icon: '🏨', label: 'Hospitals' },
       { to: '/complaints',   icon: '📝', label: 'Complaints' },
-=======
-      { to: '/admin/users', icon: '👥', label: 'All Users' },
-      { to: '/doctors',     icon: '👨‍⚕️', label: 'Doctors' },
-      { to: '/patients',    icon: '🏥', label: 'Patients' },
-      { to: '/hospitals',   icon: '🏨', label: 'Hospitals' },
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     ]},
     { section: 'Records', items: [
       { to: '/medical-records', icon: '📋', label: 'Medical Records' },
@@ -279,22 +253,13 @@ const NAV = {
 };
 
 export default function Layout() {
-<<<<<<< HEAD
   const { user, logout, api } = useAuth();
-=======
-  const { user, logout } = useAuth();
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   const { notifications, emergencyAlert, clearEmergency } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifs, setShowNotifs]     = useState(false);
-<<<<<<< HEAD
   const [showComplaintModal, setShowComplaintModal] = useState(false);
   const [apiNotifs,  setApiNotifs]      = useState([]);
-=======
-  const [apiNotifs,  setApiNotifs]      = useState([]);
-  const { api } = useAuth();
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   const notifRef = useRef();
 
   const unread = [...apiNotifs, ...notifications].filter(n => !n.read).length;
@@ -318,17 +283,13 @@ export default function Layout() {
       '/medical-records': 'Medical Records', '/lab-reports': 'Lab Reports',
       '/doctors': 'Doctors', '/patients': 'Patients', '/hospitals': 'Hospitals',
       '/chat': 'Messages', '/profile': 'My Profile', '/admin/users': 'User Management',
-<<<<<<< HEAD
       '/complaints': 'Complaints & Feedback',
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     };
     return map[location.pathname] || 'VitalByte';
   };
 
   const initials = user?.name?.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
 
-<<<<<<< HEAD
   const handleComplaintSubmit = () => {
     // Optional: Show a success toast or refresh something
     console.log('Complaint submitted successfully');
@@ -341,8 +302,6 @@ export default function Layout() {
     }
   };
 
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   return (
     <div className="app-layout">
       {/* SIDEBAR */}
@@ -401,14 +360,11 @@ export default function Layout() {
               <EmergencyBtn user={user} />
             )}
 
-<<<<<<< HEAD
             {/* Complaint Button */}
             <div className="icon-btn" onClick={() => setShowComplaintModal(true)} title="File a complaint">
               📝
             </div>
 
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
             {/* Notifications */}
             <div style={{ position: 'relative' }} ref={notifRef}>
               <div className="icon-btn" onClick={() => setShowNotifs(s => !s)}>
@@ -420,10 +376,7 @@ export default function Layout() {
                   notifs={[...notifications, ...apiNotifs].slice(0, 15)}
                   onClose={() => setShowNotifs(false)}
                   api={api}
-<<<<<<< HEAD
                   navigate={navigate}
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
                 />
               )}
             </div>
@@ -457,7 +410,6 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-<<<<<<< HEAD
 
       {/* COMPLAINT MODAL */}
       {showComplaintModal && (
@@ -467,8 +419,6 @@ export default function Layout() {
           api={api}
         />
       )}
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     </div>
   );
 }
@@ -503,7 +453,6 @@ function EmergencyBtn({ user }) {
   );
 }
 
-<<<<<<< HEAD
 function NotifPanel({ notifs, onClose, api, navigate }) {
   const markRead = async (id) => {
     await api.put(`/users/notifications/${id}/read`).catch(() => {});
@@ -516,12 +465,6 @@ function NotifPanel({ notifs, onClose, api, navigate }) {
     }
   };
   
-=======
-function NotifPanel({ notifs, onClose, api }) {
-  const markRead = async (id) => {
-    await api.put(`/users/notifications/${id}/read`).catch(() => {});
-  };
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   return (
     <div className="notif-panel">
       <div className="notif-header">
@@ -533,7 +476,6 @@ function NotifPanel({ notifs, onClose, api }) {
           No notifications
         </div>
       ) : notifs.map((n, i) => (
-<<<<<<< HEAD
         <div 
           key={n._id || n.id || i} 
           className={`notif-item ${!n.read ? 'unread' : ''}`} 
@@ -545,11 +487,6 @@ function NotifPanel({ notifs, onClose, api }) {
         >
           <div className="notif-title">
             {n.type === 'emergency' ? '🚨' : n.type === 'appointment' ? '📅' : n.type === 'lab_report' ? '🧪' : n.type === 'medical_record' ? '📋' : '🔔'} {n.title}
-=======
-        <div key={n._id || n.id || i} className={`notif-item ${!n.read ? 'unread' : ''}`} onClick={() => n._id && markRead(n._id)}>
-          <div className="notif-title">
-            {n.type === 'emergency' ? '🚨' : n.type === 'appointment' ? '📅' : n.type === 'lab_report' ? '🧪' : '🔔'} {n.title}
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
           </div>
           <div className="notif-msg">{n.message}</div>
           <div className="notif-time">{n.createdAt ? format(new Date(n.createdAt), 'MMM d, h:mm a') : 'Just now'}</div>
@@ -562,12 +499,14 @@ function NotifPanel({ notifs, onClose, api }) {
 
 
 
-<<<<<<< HEAD
 
 
 
 
-//components/ReadOnlyRecordView.js//
+
+
+
+//components/ReadOnlyRecordView.jsx//
 
 import React from 'react';
 import { format } from 'date-fns';
@@ -655,84 +594,16 @@ const VitalBadge = ({ label, value }) => (
 
 
 
-//context/AuthContext.js//
 
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+//context/AuthContext.jsx//
 
-const AuthContext = createContext(null);
-
-const api = axios.create({ baseURL: process.env.REACT_APP_API_URL + '/api' });
-
-api.interceptors.request.use(cfg => {
-  const token = localStorage.getItem('vb_token');
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
-  return cfg;
-});
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
-
-  useEffect(() => {
-    const token = localStorage.getItem('vb_token');
-    if (token) {
-      api.get('/auth/me')
-        .then(r => setUser(r.data.user))
-        .catch(() => localStorage.removeItem('vb_token'))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const login = async (email, password) => {
-    setError('');
-    const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('vb_token', data.token);
-    setUser(data.user);
-    return data.user;
-  };
-
-  const register = async (form) => {
-    setError('');
-    const { data } = await api.post('/auth/register', form);
-    localStorage.setItem('vb_token', data.token);
-    setUser(data.user);
-    return data.user;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('vb_token');
-    setUser(null);
-  };
-
-  const updateUser = (u) => setUser(u);
-
-  return (
-    <AuthContext.Provider value={{ user, loading, error, setError, login, register, logout, updateUser, api }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => useContext(AuthContext);
-export { api };
+export { AdminUsers as default } from './Profile';
 
 
 
 
+//context/SocketContext.jsx//
 
-
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
-// ─── SocketContext.js ─────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
@@ -744,70 +615,42 @@ export const SocketProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [emergencyAlert, setEmergencyAlert] = useState(null);
 
-<<<<<<< HEAD
- // In the useEffect where socket connects, add room joining
-useEffect(() => {
-  if (!userId) return;
-
-  socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
-    transports: ['websocket'],
-  });
-
-  const socket = socketRef.current;
-
-  socket.on('connect', () => {
-    socket.emit('register', userId);
-    // Join user-specific room for notifications
-    socket.emit('join_room', `user_${userId}`);
-  });
-
-  socket.on('online_users', (users) => setOnlineUsers(users));
-  socket.on('emergency_broadcast', (data) => {
-    setEmergencyAlert(data);
-    setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
-  });
-  
-  // Listen for real-time notifications
-  socket.on('new_notification', (notification) => {
-    setNotifications(n => [{ ...notification, id: Date.now(), read: false }, ...n]);
-  });
-  
-  socket.on('new_appointment', (data) => addNotif('appointment', data));
-  socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
-  socket.on('new_lab_report', (data) => addNotif('lab_report', data));
-  
-  return () => socket.disconnect();
-}, [userId]);
-=======
   useEffect(() => {
     if (!userId) return;
 
-    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
+    socketRef.current = io('/', {
       transports: ['websocket'],
+      path: '/socket.io',
     });
 
     const socket = socketRef.current;
 
     socket.on('connect', () => {
+      console.log('Socket connected');
       socket.emit('register', userId);
+      socket.emit('join_room', `user_${userId}`);
     });
 
-    socket.on('online_users',    (users) => setOnlineUsers(users));
+    socket.on('online_users', (users) => setOnlineUsers(users));
     socket.on('emergency_broadcast', (data) => {
       setEmergencyAlert(data);
       setNotifications(n => [{ ...data, id: Date.now(), type: 'emergency' }, ...n]);
     });
-    socket.on('new_appointment',      (data) => addNotif('appointment',  data));
+    
+    socket.on('new_notification', (notification) => {
+      setNotifications(n => [{ ...notification, id: Date.now(), read: false }, ...n]);
+    });
+    
+    socket.on('new_appointment', (data) => addNotif('appointment', data));
     socket.on('appointment_status_changed', (data) => addNotif('appointment', data));
-    socket.on('new_lab_report',       (data) => addNotif('lab_report',   data));
-    socket.on('appointment_update',   () => {}); // handled per-page
-    socket.on('lab_report_update',    () => {});
-    socket.on('record_added',         () => {});
-
-    return () => socket.disconnect();
-  // eslint-disable-next-line
+    socket.on('new_lab_report', (data) => addNotif('lab_report', data));
+    socket.on('record_added', (data) => addNotif('medical_record', data));
+    socket.on('record_updated', (data) => addNotif('medical_record', data));
+    
+    return () => {
+      socket.disconnect();
+    };
   }, [userId]);
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
   const addNotif = (type, data) => {
     setNotifications(n => [{ ...data, id: Date.now(), type }, ...n.slice(0, 19)]);
@@ -840,26 +683,17 @@ export const useSocket = () => useContext(SocketContext);
 
 
 
-<<<<<<< HEAD
 
+//pages/AdminUser.jsx//
 
-
-
-// pages/AdminUser.js//
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 export { AdminUsers as default } from './Profile';
 
 
 
 
 
+//pages/Appointment.jsx//
 
-<<<<<<< HEAD
-//pages/Appointment.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -1132,17 +966,8 @@ const Info = ({ label, value, style }) => (
 
 
 
+//pages/Chat.jsx//
 
-
-<<<<<<< HEAD
-
-
-
-
-//pages/chat.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -1372,10 +1197,7 @@ export default function Chat() {
 
 
 
-<<<<<<< HEAD
-
-
-//pages/Complaint.js//
+/pages/complaints.jsx//
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -1731,12 +1553,8 @@ function ComplaintDetailModal({ complaint, user, onClose, onUpdate }) {
 
 
 
+//pages/Dashboard.jsx//
 
-
-//pages/Dashboard.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -1927,12 +1745,10 @@ const TIPS = [
 
 
 
-<<<<<<< HEAD
 
 
+//pages/Doctors.jsx//
 
-//pages/Hospital.js//
-=======
 // ─── Doctors.js ───────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -2207,21 +2023,19 @@ export default Doctors;
 
 
 
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
+
+
+
+//pages/Hospitals.jsx//
 
 export { Hospitals as default } from './Doctors';
 
 
 
 
-<<<<<<< HEAD
 
+//pages/LabReports.jsx//
 
-//pages/LabReports.js//
-
-=======
-// ─── LabReports.js ────────────────────────────────────────────────────────────
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -2243,17 +2057,12 @@ export function LabReports() {
 
   useEffect(() => {
     load();
-<<<<<<< HEAD
     // Only load patients and doctors for roles that can upload (doctor, admin, lab_technician)
     const canUpload = ['doctor', 'admin', 'lab_technician'].includes(user?.role);
     if (canUpload) {
       api.get('/patients').then(r => setPatients(r.data)).catch(() => {});
       api.get('/doctors').then(r => setDoctors(r.data)).catch(() => {});
     }
-=======
-    api.get('/patients').then(r => setPatients(r.data)).catch(() => {});
-    api.get('/doctors').then(r => setDoctors(r.data)).catch(() => {});
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     if (!socket) return;
     socket.on('lab_report_update', load);
     return () => socket.off('lab_report_update', load);
@@ -2266,7 +2075,6 @@ export function LabReports() {
   };
 
   const STATUS_BADGE = { pending: 'badge-warning', processing: 'badge-info', completed: 'badge-success' };
-<<<<<<< HEAD
   
   // Check if user can upload lab reports
   const canUpload = user?.role === 'doctor' || user?.role === 'admin' || user?.role === 'lab_technician';
@@ -2278,21 +2086,15 @@ export function LabReports() {
     const fullUrl = `${baseUrl}${fileUrl}`;
     window.open(fullUrl, '_blank');
   };
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
   return (
     <div>
       <div className="page-header">
         <div><h1>Lab Reports</h1><p>{reports.length} total reports</p></div>
-<<<<<<< HEAD
         {/* Only show upload button for doctors, admins, and lab technicians */}
         {canUpload && (
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Upload Report</button>
         )}
-=======
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Upload Report</button>
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
       </div>
 
       {loading ? <div className="loader"><div className="spinner"/></div> : (
@@ -2300,7 +2102,6 @@ export function LabReports() {
           <div className="table-wrap">
             <table>
               <thead>
-<<<<<<< HEAD
                 <tr>
                   <th>Record ID</th>
                   <th>Patient</th>
@@ -2310,9 +2111,6 @@ export function LabReports() {
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
-=======
-                <tr><th>Record ID</th><th>Patient</th><th>Referred By</th><th>Test</th><th>Date</th><th>Status</th><th>Actions</th></tr>
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
               </thead>
               <tbody>
                 {reports.length === 0 ? (
@@ -2326,7 +2124,6 @@ export function LabReports() {
                     <td>{r.uploaded_at ? format(new Date(r.uploaded_at), 'MMM d, yyyy') : '—'}</td>
                     <td><span className={`badge ${STATUS_BADGE[r.status]}`}>{r.status}</span></td>
                     <td>
-<<<<<<< HEAD
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {r.upload_files && r.upload_files.length > 0 ? (
                           r.upload_files.map((file, idx) => (
@@ -2343,13 +2140,6 @@ export function LabReports() {
                         )}
                         {/* Doctors, admins, and lab technicians can mark reports as completed */}
                         {(user?.role === 'doctor' || user?.role === 'admin' || user?.role === 'lab_technician') && r.status !== 'completed' && (
-=======
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {r.upload_files?.length > 0 && (
-                          <a href={r.upload_files[0]} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">📄 View</a>
-                        )}
-                        {(user.role === 'doctor' || user.role === 'admin') && r.status !== 'completed' && (
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
                           <button className="btn btn-success btn-sm" onClick={() => updateStatus(r._id, 'completed', '')}>Mark Done</button>
                         )}
                       </div>
@@ -2362,12 +2152,8 @@ export function LabReports() {
         </div>
       )}
 
-<<<<<<< HEAD
       {/* Only show upload modal for users who can upload */}
       {showModal && canUpload && (
-=======
-      {showModal && (
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
         <UploadModal patients={patients} doctors={doctors} user={user} onClose={() => setShowModal(false)} onUploaded={load} api={api} />
       )}
     </div>
@@ -2375,7 +2161,6 @@ export function LabReports() {
 }
 
 function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
-<<<<<<< HEAD
   const [form, setForm] = useState({ 
     patient_id: '', 
     referred_by: '', 
@@ -2400,20 +2185,10 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
     
     setLoading(true);
     setError('');
-=======
-  const [form, setForm] = useState({ patient_id: user.role === 'patient' ? user._id : '', referred_by: '', test_name: '', test_type: '', notes: '' });
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
       files.forEach(f => fd.append('files', f));
-<<<<<<< HEAD
       await api.post('/lab-reports', fd, { 
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
@@ -2425,18 +2200,11 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
     } finally { 
       setLoading(false); 
     }
-=======
-      await api.post('/lab-reports', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      onUploaded(); onClose();
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-<<<<<<< HEAD
         <div className="modal-header">
           <h2>🧪 Upload Lab Report</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
@@ -2456,21 +2224,6 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
               </select>
             </div>
             <div className="form-group">
-=======
-        <div className="modal-header"><h2>🧪 Upload Lab Report</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
-        <form onSubmit={submit}>
-          <div className="modal-body">
-            {user.role !== 'patient' && (
-              <div className="form-group">
-                <label className="form-label">Patient</label>
-                <select className="form-select" value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} required>
-                  <option value="">Select Patient</option>
-                  {patients.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="form-group">
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
               <label className="form-label">Referred By (Doctor)</label>
               <select className="form-select" value={form.referred_by} onChange={e => setForm(f => ({ ...f, referred_by: e.target.value }))}>
                 <option value="">Self / Walk-in</option>
@@ -2488,7 +2241,6 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
               </div>
             </div>
             <div className="form-group">
-<<<<<<< HEAD
               <label className="form-label">Upload Files (PDF / Images) *</label>
               <input 
                 type="file" 
@@ -2498,11 +2250,6 @@ function UploadModal({ patients, doctors, user, onClose, onUploaded, api }) {
                 style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }} 
                 required
               />
-=======
-              <label className="form-label">Upload Files (PDF / Images)</label>
-              <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFiles(Array.from(e.target.files))}
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%', color: 'var(--text)', fontSize: 13 }} />
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
               {files.length > 0 && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4 }}>{files.length} file(s) selected</div>}
             </div>
             <div className="form-group">
@@ -2526,14 +2273,8 @@ export default LabReports;
 
 
 
-<<<<<<< HEAD
+//pages/Login.jsx//
 
-
-
-//pages/Login.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -2622,25 +2363,14 @@ export default function Login() {
 
 
 
-<<<<<<< HEAD
 
+//pages/MedicalRecords.jsx//
 
-
-
-
-
-//pages/MedicalRecords.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { format } from 'date-fns';
-<<<<<<< HEAD
 import ReadOnlyRecordView from '../components/ReadOnlyRecordView';
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
 export default function MedicalRecords() {
   const { user, api } = useAuth();
@@ -2649,12 +2379,8 @@ export default function MedicalRecords() {
   const [patients, setPatients] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showModal, setShowModal] = useState(false);
-<<<<<<< HEAD
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState(null);
-=======
-  const [selected,  setSelected]  = useState(null);
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   const [search, setSearch] = useState('');
 
   const load = useCallback(() => {
@@ -2664,7 +2390,6 @@ export default function MedicalRecords() {
 
   useEffect(() => {
     load();
-<<<<<<< HEAD
     if (user.role === 'doctor' || user.role === 'admin') {
       api.get('/patients').then(r => setPatients(r.data));
     }
@@ -2686,25 +2411,13 @@ export default function MedicalRecords() {
     }
   };
 
-=======
-    if (user.role === 'doctor') api.get('/patients').then(r => setPatients(r.data));
-    if (!socket) return;
-    socket.on('record_added', load);
-    return () => socket.off('record_added', load);
-  // eslint-disable-next-line
-  }, [socket]);
-
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   const filtered = records.filter(r =>
     r.patient_id?.name?.toLowerCase().includes(search.toLowerCase()) ||
     r.diagnosis?.toLowerCase().includes(search.toLowerCase())
   );
 
-<<<<<<< HEAD
   const canAddRecord = user.role === 'doctor' || user.role === 'admin';
 
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
   return (
     <div>
       <div className="page-header">
@@ -2712,11 +2425,7 @@ export default function MedicalRecords() {
           <h1>Medical Records</h1>
           <p>{records.length} records found</p>
         </div>
-<<<<<<< HEAD
         {canAddRecord && (
-=======
-        {user.role === 'doctor' && (
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Record</button>
         )}
       </div>
@@ -2737,11 +2446,7 @@ export default function MedicalRecords() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(r => (
-<<<<<<< HEAD
             <div key={r._id} className="card" style={{ cursor: 'pointer', padding: '18px 20px' }} onClick={() => handleRecordClick(r)}>
-=======
-            <div key={r._id} className="card" style={{ cursor: 'pointer', padding: '18px 20px' }} onClick={() => setSelected(r)}>
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <div className="avatar" style={{ width: 44, height: 44, fontSize: 18 }}>
@@ -2784,7 +2489,6 @@ export default function MedicalRecords() {
         <AddRecordModal patients={patients} onClose={() => setShowModal(false)} onAdded={load} api={api} />
       )}
 
-<<<<<<< HEAD
       {/* Read-only view for patients */}
       {selectedRecord && user.role === 'patient' && (
         <ReadOnlyRecordView 
@@ -2802,10 +2506,6 @@ export default function MedicalRecords() {
           onUpdated={load} 
           api={api} 
         />
-=======
-      {selected && (
-        <RecordDetailModal record={selected} onClose={() => setSelected(null)} />
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
       )}
     </div>
   );
@@ -2947,7 +2647,6 @@ function AddRecordModal({ patients, onClose, onAdded, api }) {
   );
 }
 
-<<<<<<< HEAD
 function EditRecordModal({ record, patients, onClose, onUpdated, api }) {
   const [form, setForm] = useState({
     patient_id: record.patient_id?._id || '',
@@ -3053,46 +2752,10 @@ function EditRecordModal({ record, patients, onClose, onUpdated, api }) {
                       <label className="form-label">Duration</label>
                       <input className="form-input" name="duration" value={rx.duration} onChange={e => handleRx(i, e)} placeholder="5 days" />
                     </div>
-=======
-function RecordDetailModal({ record: r, onClose }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Medical Record</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <Info label="Patient"  value={r.patient_id?.name} />
-            <Info label="Doctor"   value={`Dr. ${r.doctor_id?.name}`} />
-            <Info label="Date"     value={r.date ? format(new Date(r.date), 'MMMM d, yyyy') : '—'} />
-            <Info label="Diagnosis" value={r.diagnosis} />
-          </div>
-
-          {r.symptoms?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Symptoms</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {r.symptoms.map((s, i) => <span key={i} className="badge badge-info">{s}</span>)}
-              </div>
-            </div>
-          )}
-
-          {r.prescriptions?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 8 }}>Prescriptions</div>
-              {r.prescriptions.map((rx, i) => (
-                <div key={i} style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 8 }}>
-                  <strong>{rx.medicine}</strong>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
-                    {rx.dosage} • {rx.frequency} • {rx.duration}
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
                   </div>
                 </div>
               ))}
             </div>
-<<<<<<< HEAD
 
             <div className="form-group">
               <label className="form-label">Additional Notes</label>
@@ -3109,53 +2772,26 @@ function RecordDetailModal({ record: r, onClose }) {
             <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Updating…' : 'Update Record'}</button>
           </div>
         </form>
-=======
-          )}
-
-          {r.other_records && <Info label="Notes" value={r.other_records} />}
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>Close</button>
-        </div>
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
       </div>
     </div>
   );
 }
 
-<<<<<<< HEAD
-=======
-const Info = ({ label, value }) => (
-  <div>
-    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>{label}</div>
-    <div style={{ fontSize: 13 }}>{value || '—'}</div>
-  </div>
-);
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
 
 
 
 
 
-
-<<<<<<< HEAD
-
+//pages/Patients.jsx//
 
 
-//pages/Patients.js//
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 export { Patients as default } from './Doctors';
 
 
 
+//pages/Profil.jsx//
 
-
-<<<<<<< HEAD
-//pages/Profil.js//
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 // ─── Profile.js ───────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -3368,17 +3004,8 @@ export default Profile;
 
 
 
-<<<<<<< HEAD
+//pages/Register.jsx//
 
-
-
-
-
-
-//pages/Register.js//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -3586,17 +3213,11 @@ export default function Register() {
 
 
 
-<<<<<<< HEAD
 
 
 
+//Apps.jsx//
 
-
-
-//App.js.//
-
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -3612,13 +3233,9 @@ import Doctors from './pages/Doctors';
 import Patients from './pages/Patients';
 import Hospitals from './pages/Hospitals';
 import Chat from './pages/Chat';
-import Profile from './pages/Profile';
-import AdminUsers from './pages/AdminUsers';
+import Profile, { AdminUsers } from './pages/Profile';
 import './index.css';
-<<<<<<< HEAD
 import Complaints from './pages/Complaints';
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -3647,12 +3264,9 @@ const AppRoutes = () => {
             <Route path="chat"            element={<Chat />} />
             <Route path="profile"         element={<Profile />} />
             <Route path="admin/users"     element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
+            <Route path="complaints"      element={<Complaints />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
-<<<<<<< HEAD
-          <Route path="complaints" element={<Complaints />} />
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
         </Routes>
       </BrowserRouter>
     </SocketProvider>
@@ -3671,15 +3285,10 @@ export default function App() {
 
 
 
-<<<<<<< HEAD
-
-
 
 
 //index.css//
 
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
 :root {
@@ -4091,23 +3700,6 @@ td strong { color: var(--text); }
 }
 
 
-
-
-<<<<<<< HEAD
-
-
-
-
-
-//index.js//
-=======
->>>>>>> 51d3a2f41daa6f67838d3c04bd125e8801d3343f
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<React.StrictMode><App /></React.StrictMode>);
 
 
 
